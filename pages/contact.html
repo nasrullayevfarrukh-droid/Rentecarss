@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Rentacarss.az əlaqə və rezervasiya səhifəsi." />
+    <title>Rentacarss.az | Əlaqə</title>
+    <link rel="icon" type="image/jpeg" href="../491418310_572009719261404_7589279120410787750_n.jpg" />
+    <link rel="apple-touch-icon" href="../491418310_572009719261404_7589279120410787750_n.jpg" />
+    <meta name="theme-color" content="#ff6436" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles/main.css" />
+  </head>
+  <body data-page="contact">
+    <header class="site-header site-header--sticky">
+      <div class="site-topbar">
+        <div class="container site-topbar__inner">
+          <a href="tel:+994998891919">+994 99 889 19 19</a>
+          <span>Fətəli Xan Xoyski 132, Nəriman Nərimanov metrosunun yaxınlığı</span>
+        </div>
+      </div>
+      <div class="container header-inner header-inner--elevated">
+        <a class="brand" href="../index.html">
+          <span class="brand-mark"><img src="../491418310_572009719261404_7589279120410787750_n.jpg" alt="Rentacarss.az logo" /></span>
+          <span class="brand-text">
+            <strong>Rentacarss.az</strong>
+            <small>Bakıda avtomobil icarəsi</small>
+          </span>
+        </a>
+        <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="main-nav" aria-label="Menyu" data-menu-toggle>
+          <span class="menu-toggle__label">Menyu</span>
+          <span class="menu-toggle__line"></span>
+          <span class="menu-toggle__line"></span>
+          <span class="menu-toggle__line"></span>
+        </button>
+        <nav class="main-nav" id="main-nav" data-menu>
+          <a href="../index.html">Ana səhifə</a>
+          <a href="./fleet.html">Avtomobillər</a>
+          <a href="./about.html">Haqqımızda</a>
+          <a href="./contact.html" class="is-active">Əlaqə</a>
+          <a class="main-nav__cta button button--primary" href="#rezervasiya">Rezervasiya et</a>
+        </nav>
+        <div class="header-tools">
+          <div class="admin-access-dropdown" data-admin-menu>
+            <button class="admin-access" type="button" aria-label="Admin hesabı" title="Admin hesabı" aria-haspopup="true" aria-expanded="false" data-admin-menu-toggle>
+              <span class="admin-access__icon" aria-hidden="true"></span>
+              <span class="admin-access__status" aria-hidden="true"></span>
+            </button>
+            <div class="admin-access-menu" data-admin-menu-panel hidden>
+              <div class="admin-access-menu__head">
+                <strong>Rentacarss.az Admin</strong>
+                <span>Daxili idarəetmə keçidi</span>
+              </div>
+              <a class="admin-access-menu__primary" href="../admin/login.html#dashboard">Paneli aç</a>
+              <a href="../admin/login.html#cars">Avtomobillər</a>
+              <a href="../admin/login.html#media">Media</a>
+              <a href="../admin/login.html#settings">Ayarlar</a>
+            </div>
+          </div>
+          <a class="button button--primary header-cta" href="#rezervasiya">Rezervasiya et</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="inner-page">
+      <div class="container page-stack">
+        <section class="page-hero card">
+          <span class="eyebrow">Əlaqə və rezervasiya</span>
+          <h1>Tarixi, saatı və əsas məlumatı yazıb rezervasiya göndər</h1>
+          <p>Formanı dolduraraq rezervasiya sorğusu göndərə və ya birbaşa WhatsApp üzərindən əlaqə saxlaya bilərsən. Server aktiv olmadıqda müraciət avtomatik olaraq WhatsApp-a yönləndirilir.</p>
+        </section>
+
+        <section class="contact-layout contact-layout--wide" id="elaqe">
+          <div class="contact-stack">
+            <article class="content-card card" id="unvan">
+              <h3>Əlaqə məlumatları</h3>
+              <div class="contact-points">
+                <a href="tel:+994998891919">+994 99 889 19 19</a>
+                <a href="https://wa.me/994998891919" target="_blank" rel="noreferrer">WhatsApp</a>
+                <a href="https://www.instagram.com/rentacar_ss" target="_blank" rel="noreferrer">Instagram</a>
+                <span>Fətəli Xan Xoyski 132, Nəriman Nərimanov metrosunun yaxınlığı</span>
+              </div>
+            </article>
+            <article class="content-card card">
+              <h3>Rezervasiya necə işləyir?</h3>
+              <div class="contact-points">
+                <span>Əvvəlcə avtomobil, götürmə tarixi və saatı seçilir.</span>
+                <span>Daha sonra əlaqə məlumatı və sürücülük vəsiqəsinin seriya nömrəsi daxil edilir.</span>
+                <span>Təsdiq və təhvil detalları telefon və ya WhatsApp üzərindən dəqiqləşdirilir.</span>
+              </div>
+            </article>
+          </div>
+
+          <div class="contact-stack">
+            <article class="form-card card" id="rezervasiya">
+              <h2>Rezervasiya formu</h2>
+              <form class="contact-form" data-reservation-form>
+                <input type="hidden" name="website" value="" autocomplete="off" />
+                <input type="hidden" name="startedAt" value="" />
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Ad və soyad</span>
+                    <input type="text" name="fullName" placeholder="Ad və soyad" required />
+                  </label>
+                  <label class="field">
+                    <span>Sürücülük vəsiqəsinin seriya nömrəsi</span>
+                    <input type="text" name="driverLicenseSerial" placeholder="Məsələn: AA1234567" required />
+                  </label>
+                  <label class="field">
+                    <span>Telefon</span>
+                    <input type="tel" name="phone" placeholder="+994 99 889 19 19" required />
+                  </label>
+                  <label class="field field--full">
+                    <span>Avtomobil</span>
+                    <select name="carSlug" data-car-select required>
+                      <option value="">Avtomobil seçin</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Götürmə tarixi</span>
+                    <input type="date" name="pickupDate" required />
+                  </label>
+                  <label class="field">
+                    <span>Götürmə saatı</span>
+                    <input type="time" name="pickupTime" required />
+                  </label>
+                  <label class="field">
+                    <span>Qaytarma tarixi</span>
+                    <input type="date" name="dropoffDate" />
+                  </label>
+                  <label class="field field--full">
+                    <span>Təhvil yeri</span>
+                    <input type="text" name="pickupLocation" placeholder="Nərimanov və ya başqa ünvan" />
+                  </label>
+                  <label class="field field--full">
+                    <span>Qeyd</span>
+                    <textarea name="note" placeholder="Əlavə istəklərinizi yaza bilərsiniz"></textarea>
+                  </label>
+                  <div class="form-grid__submit">
+                    <button class="button button--primary" type="submit">Rezervasiya göndər</button>
+                  </div>
+                  <p class="form-feedback form-grid__feedback" data-reservation-feedback></p>
+                </div>
+              </form>
+            </article>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="site-footer site-footer--rich">
+      <div class="container footer-layout">
+        <div class="footer-brand">
+          <span class="brand brand--footer">
+            <span class="brand-mark"><img src="../491418310_572009719261404_7589279120410787750_n.jpg" alt="Rentacarss.az logo" /></span>
+            <span class="brand-text">
+              <strong>Rentacarss.az</strong>
+              <small>Bakıda avtomobil icarəsi</small>
+            </span>
+          </span>
+          <p>Gündəlik və həftəlik avtomobil icarəsi üçün aydın qiymətlər, rahat seçim və sürətli əlaqə təqdim olunur.</p>
+        </div>
+        <div class="footer-column">
+          <h3>Səhifələr</h3>
+          <a href="../index.html">Ana səhifə</a>
+          <a href="./fleet.html">Avtomobillər</a>
+          <a href="./about.html">Haqqımızda</a>
+          <a href="./contact.html">Əlaqə</a>
+        </div>
+        <div class="footer-column">
+          <h3>Əlaqə</h3>
+          <a href="tel:+994998891919">+994 99 889 19 19</a>
+          <a href="https://wa.me/994998891919" target="_blank" rel="noreferrer">WhatsApp</a>
+          <a href="https://www.instagram.com/rentacar_ss" target="_blank" rel="noreferrer">Instagram</a>
+          <span>Fətəli Xan Xoyski 132, Nəriman Nərimanov metrosunun yaxınlığı</span>
+        </div>
+      </div>
+    </footer>
+    <script src="../scripts/supabase-client.js"></script>
+    <script src="../scripts/main.js"></script>
+  </body>
+</html>
+
+
+
+
+

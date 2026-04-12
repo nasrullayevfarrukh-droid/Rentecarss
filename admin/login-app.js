@@ -1,0 +1,105 @@
+(() => {
+  const Auth = window.RentacarAdminAuth;
+  const Data = window.RentacarData;
+  if (!Auth || !Data) return;
+
+  const THEME_KEY = "rentacar-admin-theme-v5";
+  const LAST_ERROR_KEY = "rentacar-admin-last-error";
+
+  const qs = (selector, scope = document) => scope.querySelector(selector);
+
+  const readTheme = () => (localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
+
+  const setTheme = (theme) => {
+    const current = theme === "dark" ? "dark" : "light";
+    document.body.dataset.adminTheme = current;
+    localStorage.setItem(THEME_KEY, current);
+
+    const icon = qs("[data-login-theme-icon]");
+    const button = qs("[data-login-theme]");
+    const meta = qs('meta[name="theme-color"]');
+
+    if (icon) icon.textContent = current === "dark" ? "☀" : "☾";
+    if (button) {
+      const label = current === "dark" ? "İşıqlı rejim" : "Gecə rejimi";
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+    }
+    if (meta) {
+      meta.setAttribute("content", current === "dark" ? "#111827" : "#ff6436");
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    const route = Auth.sanitizeRoute(window.location.hash.slice(1));
+    const form = qs("[data-login-form]");
+    const feedback = qs("[data-login-feedback]");
+    const submit = qs("[data-login-submit]");
+    const themeButton = qs("[data-login-theme]");
+
+    setTheme(readTheme());
+
+    if (themeButton) {
+      themeButton.addEventListener("click", () => {
+        setTheme(readTheme() === "dark" ? "light" : "dark");
+      });
+    }
+
+    if (!form || !feedback || !submit) return;
+
+    try {
+      const lastError = sessionStorage.getItem(LAST_ERROR_KEY);
+      if (lastError) {
+        feedback.textContent = lastError;
+        feedback.classList.add("is-error");
+        sessionStorage.removeItem(LAST_ERROR_KEY);
+      }
+    } catch {
+      // ignore sessionStorage issues
+    }
+
+    try {
+      await Data.getConfig({ force: true });
+    } catch (error) {
+      feedback.textContent = error.message || "Supabase bağlantısı tapılmadı.";
+      feedback.classList.add("is-error");
+      submit.disabled = true;
+      submit.textContent = "Config yoxdur";
+      return;
+    }
+
+    if (Auth.hasStoredSession()) {
+      try {
+        await Auth.ensureAuthenticated();
+        Auth.redirectToAdmin(route);
+        return;
+      } catch (error) {
+        Auth.logout();
+        feedback.textContent = error.message || "Sessiya etibarsızdır. Yenidən daxil olun.";
+        feedback.classList.add("is-error");
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      feedback.textContent = "";
+      feedback.className = "admin-auth-feedback";
+      submit.disabled = true;
+      submit.textContent = "Yoxlanılır...";
+
+      const formData = new FormData(form);
+      const email = formData.get("email");
+      const password = formData.get("password");
+
+      try {
+        await Auth.signIn(email, password);
+        Auth.redirectToAdmin(route);
+      } catch (error) {
+        feedback.textContent = error.message || "Daxil olma zamanı xəta baş verdi.";
+        feedback.classList.add("is-error");
+        submit.disabled = false;
+        submit.textContent = "Daxil ol";
+      }
+    });
+  });
+})();

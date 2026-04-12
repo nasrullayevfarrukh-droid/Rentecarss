@@ -1,0 +1,1549 @@
+﻿(function () {
+  const CONFIG_ENDPOINT = "/api/public-config";
+  const SESSION_KEY = "rentacar-admin-session-v1";
+  const CONFIG_CACHE_KEY = "rentacar-public-config-v1";
+  const DEFAULT_BUCKET = "car-images";
+  const PUBLIC_CAR_COLUMN_LIST = [
+    "id",
+    "slug",
+    "title",
+    "brand",
+    "model",
+    "year",
+    "daily_price",
+    "monthly_price",
+    "transmission",
+    "fuel_type",
+    "seats",
+    "color",
+    "city",
+    "summary",
+    "description",
+    "features",
+    "cover_image_url",
+    "gallery_images",
+    "featured",
+    "status",
+    "stock_count",
+    "availability_status",
+    "category",
+    "sort_order",
+    "created_at",
+    "updated_at"
+  ];
+  const LEGACY_CAR_OPTIONAL_COLUMNS = ["stock_count", "availability_status"];
+  const LEGACY_PUBLIC_CAR_COLUMN_LIST = PUBLIC_CAR_COLUMN_LIST.filter(
+    (column) => !LEGACY_CAR_OPTIONAL_COLUMNS.includes(column)
+  );
+  const LEGACY_CAR_STATUS_OVERRIDES_KEY = "car_status_overrides";
+  const PUBLIC_CAR_COLUMNS = PUBLIC_CAR_COLUMN_LIST.join(",");
+  const LEGACY_PUBLIC_CAR_COLUMNS = LEGACY_PUBLIC_CAR_COLUMN_LIST.join(",");
+  const SITE_CONTENT_LOCAL_FALLBACK_PREFIX = "rentacar-site-content-fallback-v1:";
+  const SITE_CONTENT_COLUMNS = [
+    "key",
+    "value",
+    "created_at",
+    "updated_at"
+  ].join(",");
+  const RESERVATION_COLUMNS = [
+    "id",
+    "full_name",
+    "driver_license_serial",
+    "phone",
+    "car_slug",
+    "pickup_date",
+    "pickup_time",
+    "dropoff_date",
+    "pickup_location",
+    "note",
+    "source",
+    "status",
+    "created_at",
+    "updated_at"
+  ].join(",");
+  const DEFAULT_HOME_SPOTLIGHT = {
+    badge: "Sadə iş axını",
+    title: "Model seçimi, əlaqə və rezervasiya eyni sistemdə saxlanılıb",
+    text: "Saytın bütün əsas blokları bir məqsədə xidmət edir: modelin tez tapılması, qiymətin aydın görünməsi və müraciətin rahat göndərilməsi.",
+    imageUrl: "/491418310_572009719261404_7589279120410787750_n.jpg",
+    primaryButtonLabel: "İndi rezervasiya et",
+    primaryButtonLink: "./pages/contact.html#rezervasiya",
+    secondaryButtonLabel: "Haqqımızda",
+    secondaryButtonLink: "./pages/about.html",
+    visible: true,
+    cards: [
+      {
+        title: "Qiymət aydın görünür",
+        text: "Günlük qiymət və əsas detalları kartın üzərində dərhal görürsən."
+      },
+      {
+        title: "Detail səhifə sinxron qalır",
+        text: "Maşın detail, listing və homepage eyni backend mənbəyindən oxunur."
+      },
+      {
+        title: "Müraciət axını qırılmır",
+        text: "Forma işləməsə belə istifadəçi WhatsApp ilə prosesdən çıxmır."
+      }
+    ],
+    translations: {
+      ru: {
+        badge: "Простой сценарий",
+        title: "Выбор модели, контакт и бронирование работают в одной системе",
+        text: "Все ключевые блоки сайта служат одной цели: быстро найти модель, сразу увидеть цену и удобно отправить заявку.",
+        primaryButtonLabel: "Забронировать сейчас",
+        secondaryButtonLabel: "О нас",
+        cards: [
+          {
+            title: "Цена видна сразу",
+            text: "Суточная цена и основные детали отображаются прямо на карточке."
+          },
+          {
+            title: "Страница авто остаётся синхронной",
+            text: "Карточка, список и detail-страница читают данные из одного backend источника."
+          },
+          {
+            title: "Путь заявки не обрывается",
+            text: "Даже если форма не сработает, пользователь не теряется и продолжает через WhatsApp."
+          }
+        ]
+      },
+      en: {
+        badge: "Simple flow",
+        title: "Model choice, contact, and reservation stay in one system",
+        text: "Every key block on the site serves one goal: find the right model fast, see the price clearly, and send the request without friction.",
+        primaryButtonLabel: "Reserve now",
+        secondaryButtonLabel: "About us",
+        cards: [
+          {
+            title: "Pricing is visible instantly",
+            text: "Daily price and the main details are shown directly on the card."
+          },
+          {
+            title: "The car page stays in sync",
+            text: "Card, listing, and detail page all read from the same backend source."
+          },
+          {
+            title: "The request flow does not break",
+            text: "Even if the form fails, the user can continue through WhatsApp."
+          }
+        ]
+      }
+    }
+  };
+  const DEFAULT_HOME_HERO = {
+    badge: "Bakı üzrə avtomobil icarəsi",
+    title: "50 AZN-dən başlayan gündəlik və həftəlik avtomobil icarəsi",
+    text: "Rentacarss.az ilə sedan, SUV, premium və minivan modellərini rahat şəkildə seçə, qiymətləri görə və rezervasiya müraciətini birbaşa göndərə bilərsən. Saytın əsas məqsədi seçimi və əlaqəni sadə saxlamaqdır.",
+    primaryButtonLabel: "Avtomobillərə bax",
+    primaryButtonLink: "./pages/fleet.html",
+    secondaryButtonLabel: "Əlaqə saxla",
+    secondaryButtonLink: "./pages/contact.html",
+    trustItems: [
+      { value: "50 AZN-dən", label: "Gündəlik qiymətlər" },
+      { value: "5 model", label: "Hazır park seçimi" },
+      { value: "WhatsApp", label: "Sürətli əlaqə kanalı" }
+    ],
+    translations: {
+      ru: {
+        badge: "Прокат авто по Баку",
+        title: "Посуточная и недельная аренда авто от 50 AZN",
+        text: "С Rentacarss.az можно быстро выбрать sedan, SUV, premium и minivan модели, увидеть цену и сразу отправить заявку на бронирование. Главная цель сайта — оставить выбор и контакт простыми.",
+        primaryButtonLabel: "Посмотреть автомобили",
+        secondaryButtonLabel: "Связаться",
+        trustItems: [
+          { value: "от 50 AZN", label: "Суточные цены" },
+          { value: "5 моделей", label: "Доступный парк" },
+          { value: "WhatsApp", label: "Быстрый канал связи" }
+        ]
+      },
+      en: {
+        badge: "Car rental across Baku",
+        title: "Daily and weekly car rental starting from 50 AZN",
+        text: "With Rentacarss.az you can quickly choose sedan, SUV, premium, and minivan models, check pricing, and send a reservation request right away. The main goal of the site is to keep selection and contact simple.",
+        primaryButtonLabel: "View cars",
+        secondaryButtonLabel: "Contact us",
+        trustItems: [
+          { value: "from 50 AZN", label: "Daily pricing" },
+          { value: "5 models", label: "Available fleet" },
+          { value: "WhatsApp", label: "Fast contact channel" }
+        ]
+      }
+    }
+  };
+  const DEFAULT_HOME_CTA = {
+    badge: "Birbaşa əlaqə",
+    title: "Maşını seçmisənsə, qalanı təxminən 1 dəqiqəyə həll etmək olur",
+    text: "Sürətli rezervasiya üçün WhatsApp və telefon kanalı həmişə ön planda saxlanılıb.",
+    metaItems: [
+      "+994 99 889 19 19",
+      "WhatsApp ilə operativ cavab",
+      "Nərimanovdan rahat təhvil"
+    ],
+    primaryButtonLabel: "WhatsApp ilə yaz",
+    primaryButtonLink: "https://wa.me/994998891919",
+    secondaryButtonLabel: "Zəng et",
+    secondaryButtonLink: "tel:+994998891919",
+    translations: {
+      ru: {
+        badge: "Прямой контакт",
+        title: "Если автомобиль уже выбран, остальное можно решить примерно за минуту",
+        text: "Для быстрого бронирования WhatsApp и телефон всегда остаются на первом плане.",
+        metaItems: [
+          "+994 99 889 19 19",
+          "Оперативный ответ в WhatsApp",
+          "Удобная выдача из Нариманова"
+        ],
+        primaryButtonLabel: "Написать в WhatsApp",
+        secondaryButtonLabel: "Позвонить"
+      },
+      en: {
+        badge: "Direct contact",
+        title: "If you have already chosen the car, the rest takes about a minute",
+        text: "For quick reservations, WhatsApp and phone stay front and center.",
+        metaItems: [
+          "+994 99 889 19 19",
+          "Fast reply on WhatsApp",
+          "Convenient pickup from Narimanov"
+        ],
+        primaryButtonLabel: "Message on WhatsApp",
+        secondaryButtonLabel: "Call now"
+      }
+    }
+  };
+
+  let configPromise = null;
+  let publishedCarsCache = null;
+  let carsSchemaMode = "full";
+  let legacyCarStatusOverridesCache = null;
+  let siteContentSchemaMode = "full";
+
+  const safeJsonParse = (value, fallback = null) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  };
+
+  const parseResponse = async (response) => {
+    const text = await response.text();
+    const data = text ? safeJsonParse(text, text) : null;
+
+    if (!response.ok) {
+      const message = (
+        data && typeof data === "object" && (
+          data.message
+          || data.msg
+          || data.error_description
+          || data.error
+        )
+      ) || response.statusText || "Sorgu zamani xeta bas verdi.";
+      const error = new Error(message);
+      error.status = response.status;
+      error.payload = data;
+      throw error;
+    }
+
+    return data;
+  };
+
+  const normalizePublicConfig = (config) => ({
+    supabaseUrl: toStringValue(config && config.supabaseUrl),
+    supabaseAnonKey: toStringValue(config && config.supabaseAnonKey),
+    storageBucket: toStringValue(config && config.storageBucket) || DEFAULT_BUCKET,
+  });
+
+  const readCachedConfig = () => {
+    try {
+      return normalizePublicConfig(safeJsonParse(localStorage.getItem(CONFIG_CACHE_KEY), null));
+    } catch {
+      return normalizePublicConfig(null);
+    }
+  };
+
+  const writeCachedConfig = (config) => {
+    const normalized = normalizePublicConfig(config);
+    if (!normalized.supabaseUrl || !normalized.supabaseAnonKey) return normalized;
+    try {
+      localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(normalized));
+    } catch {
+      return normalized;
+    }
+    return normalized;
+  };
+
+  const decodeBase64Url = (value) => {
+    const normalized = String(value || "")
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(String(value || "").length / 4) * 4, "=");
+    return atob(normalized);
+  };
+
+  const getFriendlyAdminErrorMessage = (error) => {
+    const message = toStringValue(error && error.message ? error.message : error);
+    const lower = message.toLowerCase();
+
+    if (!message) return "Admin girişində xəta baş verdi.";
+    if (lower.includes("invalid login credentials")) return "Email və ya şifrə yanlışdır.";
+    if (lower.includes("email not confirmed")) return "Bu email hələ təsdiqlənməyib.";
+    if (lower.includes("failed to fetch") || lower.includes("networkerror")) {
+      return "Supabase bağlantısı alınmadı. İnterneti, `SUPABASE_URL` və `SUPABASE_ANON_KEY` dəyərlərini yoxlayın.";
+    }
+    if (lower.includes("admin_users")) {
+      return "Supabase schema tam qurulmayıb. `supabase/schema.sql` və sonra `supabase/grant_admin_by_email.sql` işlədin.";
+    }
+    if (lower.includes("admin icazəsi yoxdur")) {
+      return "Bu email admin deyil. `supabase/grant_admin_by_email.sql` faylını işlədin.";
+    }
+    if (lower.includes("jwt") || lower.includes("session") || lower.includes("sessiya")) {
+      return "Sessiya etibarsızdır. Yenidən daxil olun.";
+    }
+    return message;
+  };
+
+  const decodeJwtPayload = (token) => {
+    try {
+      const payload = String(token || "").split(".")[1];
+      return payload ? safeJsonParse(decodeBase64Url(payload), null) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const hasAdminRole = (payload) => {
+    if (!payload || typeof payload !== "object") return false;
+    const directRole = payload.role;
+    const appRole = payload.app_metadata && payload.app_metadata.role;
+    const userRole = payload.user_metadata && payload.user_metadata.role;
+    const appRoles = payload.app_metadata && payload.app_metadata.roles;
+    const userRoles = payload.user_metadata && payload.user_metadata.roles;
+
+    return [directRole, appRole, userRole].includes("admin")
+      || (Array.isArray(appRoles) && appRoles.includes("admin"))
+      || (Array.isArray(userRoles) && userRoles.includes("admin"));
+  };
+
+  const toStringValue = (value) => String(value || "").trim();
+
+  const toNumber = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  };
+
+  const toInteger = (value, fallback = null) => {
+    const numeric = toNumber(value);
+    if (numeric === null) return fallback;
+    return Math.max(0, Math.trunc(numeric));
+  };
+
+  const normalizeAvailabilityStatus = (value, fallback = "available") => {
+    const clean = toStringValue(value).toLowerCase();
+    if (["available", "rented", "unavailable"].includes(clean)) return clean;
+    return fallback;
+  };
+
+  const normalizeReservationStatus = (value, fallback = "new") => {
+    const clean = toStringValue(value).toLowerCase();
+    if (["new", "reviewed", "spam", "archived"].includes(clean)) return clean;
+    return fallback;
+  };
+
+  const toArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (!value) return [];
+    if (typeof value === "string") {
+      const parsed = safeJsonParse(value, null);
+      if (Array.isArray(parsed)) return parsed;
+      return value
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+  const cloneData = (value) => safeJsonParse(JSON.stringify(value), value);
+  const CONTENT_LOCALES = ["ru", "en"];
+  const getErrorText = (error) => {
+    if (!error) return "";
+    const direct = toStringValue(error.message || error);
+    if (direct) return direct.toLowerCase();
+    const payloadMessage = toStringValue(
+      error.payload && typeof error.payload === "object"
+        ? error.payload.message || error.payload.error || error.payload.error_description
+        : ""
+    );
+    return payloadMessage.toLowerCase();
+  };
+
+  const isMissingSiteContentTableError = (error) => {
+    const message = [
+      getErrorText(error),
+      safeJsonParse(JSON.stringify(error && error.payload ? error.payload : {}), ""),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      message.includes("public.site_content")
+      || message.includes("site_content")
+      || message.includes("relation \"public.site_content\" does not exist")
+      || message.includes("could not find the table 'public.site_content' in the schema cache")
+      || message.includes("could not find the table \"public.site_content\" in the schema cache")
+    );
+  };
+
+  const getSiteContentFallbackStorageKey = (key) => `${SITE_CONTENT_LOCAL_FALLBACK_PREFIX}${toStringValue(key)}`;
+
+  const readSiteContentFallback = (key, fallback = null) => {
+    try {
+      const stored = localStorage.getItem(getSiteContentFallbackStorageKey(key));
+      if (!stored) return cloneData(fallback);
+      return safeJsonParse(stored, cloneData(fallback));
+    } catch {
+      return cloneData(fallback);
+    }
+  };
+
+  const writeSiteContentFallback = (key, value) => {
+    const cleanKey = toStringValue(key);
+    const snapshot = cloneData(value);
+    try {
+      localStorage.setItem(getSiteContentFallbackStorageKey(cleanKey), JSON.stringify(snapshot));
+    } catch {
+      return snapshot;
+    }
+    return snapshot;
+  };
+  
+  const slugify = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const encodeStoragePath = (value) => String(value || "")
+    .split("/")
+    .filter(Boolean)
+    .map((part) => encodeURIComponent(part))
+    .join("/");
+
+  const buildPublicAssetUrlInternal = (supabaseUrl, bucket, path) => {
+    if (!path) return "";
+    return `${supabaseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`;
+  };
+
+  const normalizeCarRecord = (record) => ({
+    id: record.id,
+    slug: toStringValue(record.slug),
+    title: toStringValue(record.title || `${record.brand || ""} ${record.model || ""}`),
+    brand: toStringValue(record.brand),
+    model: toStringValue(record.model),
+    year: toNumber(record.year),
+    dailyPrice: toNumber(record.daily_price) || 0,
+    monthlyPrice: toNumber(record.monthly_price),
+    transmission: toStringValue(record.transmission),
+    fuelType: toStringValue(record.fuel_type),
+    seats: toNumber(record.seats) || 0,
+    color: toStringValue(record.color),
+    city: toStringValue(record.city),
+    summary: toStringValue(record.summary),
+    description: toStringValue(record.description),
+    features: toArray(record.features).map((item) => toStringValue(item)).filter(Boolean),
+    coverImageUrl: toStringValue(record.cover_image_url),
+    galleryImages: toArray(record.gallery_images).map((item) => toStringValue(item)).filter(Boolean),
+    featured: Boolean(record.featured),
+    status: toStringValue(record.status || "draft"),
+    stockCount: toInteger(record.stock_count, 1),
+    availabilityStatus: normalizeAvailabilityStatus(
+      record.availability_status,
+      toInteger(record.stock_count, 1) === 0 ? "unavailable" : "available"
+    ),
+    category: toStringValue(record.category || "sedan"),
+    sortOrder: toNumber(record.sort_order) || 0,
+    createdAt: record.created_at || "",
+    updatedAt: record.updated_at || "",
+  });
+
+  const normalizeReservationRecord = (record) => ({
+    id: record.id,
+    fullName: toStringValue(record.full_name),
+    driverLicenseSerial: toStringValue(record.driver_license_serial),
+    phone: toStringValue(record.phone),
+    carSlug: toStringValue(record.car_slug),
+    pickupDate: toStringValue(record.pickup_date),
+    pickupTime: toStringValue(record.pickup_time),
+    dropoffDate: toStringValue(record.dropoff_date),
+    pickupLocation: toStringValue(record.pickup_location),
+    note: toStringValue(record.note),
+    source: toStringValue(record.source || "website"),
+    status: normalizeReservationStatus(record.status),
+    createdAt: record.created_at || "",
+    updatedAt: record.updated_at || "",
+  });
+
+  const serializeCarPayload = (input) => {
+    const title = toStringValue(input.title || `${input.brand || ""} ${input.model || ""}`);
+    const stockCount = toInteger(input.stockCount, 1);
+    const availabilityStatus = normalizeAvailabilityStatus(
+      input.availabilityStatus,
+      stockCount === 0 ? "unavailable" : "available"
+    );
+    return {
+      slug: toStringValue(input.slug) || slugify(title),
+      title,
+      brand: toStringValue(input.brand),
+      model: toStringValue(input.model),
+      year: toNumber(input.year),
+      daily_price: toNumber(input.dailyPrice) || 0,
+      monthly_price: toNumber(input.monthlyPrice),
+      transmission: toStringValue(input.transmission),
+      fuel_type: toStringValue(input.fuelType),
+      seats: toNumber(input.seats) || 0,
+      color: toStringValue(input.color),
+      city: toStringValue(input.city) || "Bakı",
+      summary: toStringValue(input.summary),
+      description: toStringValue(input.description),
+      features: toArray(input.features).map((item) => toStringValue(item)).filter(Boolean),
+      cover_image_url: toStringValue(input.coverImageUrl),
+      gallery_images: toArray(input.galleryImages).map((item) => toStringValue(item)).filter(Boolean),
+      featured: Boolean(input.featured),
+      status: toStringValue(input.status) || "draft",
+      stock_count: stockCount,
+      availability_status: stockCount === 0 && availabilityStatus === "available" ? "unavailable" : availabilityStatus,
+      category: toStringValue(input.category) || "sedan",
+      sort_order: toNumber(input.sortOrder) || 0,
+    };
+  };
+
+  const serializeReservationPayload = (input) => ({
+    full_name: toStringValue(input.fullName),
+    driver_license_serial: toStringValue(input.driverLicenseSerial),
+    phone: toStringValue(input.phone),
+    car_slug: toStringValue(input.carSlug),
+    pickup_date: toStringValue(input.pickupDate),
+    pickup_time: toStringValue(input.pickupTime),
+    dropoff_date: toStringValue(input.dropoffDate) || null,
+    pickup_location: toStringValue(input.pickupLocation) || null,
+    note: toStringValue(input.note) || null,
+    source: toStringValue(input.source) || "website",
+    status: normalizeReservationStatus(input.status, "new"),
+  });
+
+  const isLegacyCarsSchemaError = (error) => {
+    const message = [
+      getErrorText(error),
+      safeJsonParse(JSON.stringify(error && error.payload ? error.payload : {}), ""),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return LEGACY_CAR_OPTIONAL_COLUMNS.some((column) => (
+      message.includes(`column cars.${column} does not exist`)
+      || message.includes(`could not find the '${column}' column of 'cars' in the schema cache`)
+      || message.includes(`could not find the "${column}" column of "cars" in the schema cache`)
+      || (message.includes("schema cache") && message.includes("cars") && message.includes(column))
+      || message.includes(`cars.${column}`)
+      || message.includes(`"${column}"`)
+    ));
+  };
+
+  const stripLegacyCarFields = (payload) => {
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return payload;
+    }
+
+    const next = { ...payload };
+    LEGACY_CAR_OPTIONAL_COLUMNS.forEach((column) => {
+      delete next[column];
+    });
+    return next;
+  };
+
+  const normalizeCarStatusOverrides = (value) => {
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    return Object.entries(source).reduce((acc, [slug, status]) => {
+      const cleanSlug = toStringValue(slug);
+      const cleanStatus = normalizeAvailabilityStatus(status, "");
+      if (cleanSlug && cleanStatus === "rented") {
+        acc[cleanSlug] = cleanStatus;
+      }
+      return acc;
+    }, {});
+  };
+
+  const getCarStatusOverrides = async ({ force = false } = {}) => {
+    if (!force && legacyCarStatusOverridesCache) {
+      return { ...legacyCarStatusOverridesCache };
+    }
+
+    const value = await getSiteContent(LEGACY_CAR_STATUS_OVERRIDES_KEY, { fallback: {} });
+    legacyCarStatusOverridesCache = normalizeCarStatusOverrides(value);
+    return { ...legacyCarStatusOverridesCache };
+  };
+
+  const saveCarStatusOverrides = async (overrides) => {
+    const normalized = normalizeCarStatusOverrides(overrides);
+    legacyCarStatusOverridesCache = { ...normalized };
+    await saveSiteContent(LEGACY_CAR_STATUS_OVERRIDES_KEY, normalized);
+    publishedCarsCache = null;
+    return { ...legacyCarStatusOverridesCache };
+  };
+
+  const applyLegacyCarStatusOverrides = async (cars, { force = false } = {}) => {
+    const items = Array.isArray(cars) ? cars : [];
+    if (carsSchemaMode !== "legacy" || !items.length) {
+      return items;
+    }
+
+    const overrides = await getCarStatusOverrides({ force });
+    return items.map((car) => {
+      if (!car || typeof car !== "object") return car;
+
+      const rawStatus = toStringValue(car.status).toLowerCase();
+      if (rawStatus !== "published") {
+        return {
+          ...car,
+          availabilityStatus: "unavailable",
+        };
+      }
+
+      return {
+        ...car,
+        availabilityStatus: overrides[car.slug] === "rented" ? "rented" : "available",
+      };
+    });
+  };
+
+  const persistLegacyCarStatus = async (car, desiredAvailability, desiredStatus) => {
+    if (carsSchemaMode !== "legacy" || !car || !toStringValue(car.slug)) {
+      return car;
+    }
+
+    const overrides = await getCarStatusOverrides();
+    const nextOverrides = { ...overrides };
+    const cleanSlug = toStringValue(car.slug);
+    const cleanStatus = toStringValue(desiredStatus || car.status).toLowerCase();
+    const cleanAvailability = normalizeAvailabilityStatus(desiredAvailability || car.availabilityStatus);
+
+    if (cleanStatus !== "published" || cleanAvailability !== "rented") {
+      delete nextOverrides[cleanSlug];
+    } else {
+      nextOverrides[cleanSlug] = "rented";
+    }
+
+    const changed = JSON.stringify(nextOverrides) !== JSON.stringify(overrides);
+    if (changed) {
+      await saveCarStatusOverrides(nextOverrides);
+    }
+
+    const [nextCar] = await applyLegacyCarStatusOverrides([{
+      ...car,
+      status: cleanStatus || car.status,
+      availabilityStatus: cleanAvailability,
+    }]);
+    return nextCar || car;
+  };
+
+  const normalizeHomeSpotlightContent = (value) => {
+    const source = value && typeof value === "object" ? value : {};
+    const fallback = cloneData(DEFAULT_HOME_SPOTLIGHT);
+    const rawCards = Array.isArray(source.cards) ? source.cards : fallback.cards;
+    const normalizeLocale = (localeValue, localeFallback) => {
+      const localeSource = localeValue && typeof localeValue === "object" ? localeValue : {};
+      const localeBase = localeFallback && typeof localeFallback === "object" ? localeFallback : {};
+      const localeCards = Array.isArray(localeSource.cards) ? localeSource.cards : localeBase.cards;
+      return {
+        badge: toStringValue(localeSource.badge) || localeBase.badge || "",
+        title: toStringValue(localeSource.title) || localeBase.title || "",
+        text: toStringValue(localeSource.text) || localeBase.text || "",
+        primaryButtonLabel: toStringValue(localeSource.primaryButtonLabel) || localeBase.primaryButtonLabel || "",
+        secondaryButtonLabel: toStringValue(localeSource.secondaryButtonLabel) || localeBase.secondaryButtonLabel || "",
+        cards: toArray(localeCards)
+          .map((item, index) => ({
+            title: toStringValue(item && item.title) || localeBase.cards?.[index]?.title || "",
+            text: toStringValue(item && item.text) || localeBase.cards?.[index]?.text || "",
+          }))
+          .filter((item) => item.title || item.text)
+          .slice(0, 4),
+      };
+    };
+
+    return {
+      badge: toStringValue(source.badge) || fallback.badge,
+      title: toStringValue(source.title) || fallback.title,
+      text: toStringValue(source.text) || fallback.text,
+      imageUrl: toStringValue(source.imageUrl) || fallback.imageUrl,
+      primaryButtonLabel: toStringValue(source.primaryButtonLabel) || fallback.primaryButtonLabel,
+      primaryButtonLink: toStringValue(source.primaryButtonLink) || fallback.primaryButtonLink,
+      secondaryButtonLabel: toStringValue(source.secondaryButtonLabel) || fallback.secondaryButtonLabel,
+      secondaryButtonLink: toStringValue(source.secondaryButtonLink) || fallback.secondaryButtonLink,
+      visible: source.visible !== undefined ? Boolean(source.visible) : fallback.visible,
+      cards: rawCards
+        .map((item, index) => ({
+          title: toStringValue(item && item.title) || fallback.cards[index]?.title || `Kart ${index + 1}`,
+          text: toStringValue(item && item.text) || fallback.cards[index]?.text || "",
+        }))
+        .filter((item) => item.title || item.text)
+        .slice(0, 4),
+      translations: CONTENT_LOCALES.reduce((acc, locale) => {
+        acc[locale] = normalizeLocale(source.translations && source.translations[locale], fallback.translations && fallback.translations[locale]);
+        return acc;
+      }, {}),
+    };
+  };
+
+  const normalizeHomeHeroContent = (value) => {
+    const source = value && typeof value === "object" ? value : {};
+    const fallback = cloneData(DEFAULT_HOME_HERO);
+    const rawTrustItems = Array.isArray(source.trustItems) ? source.trustItems : fallback.trustItems;
+    const normalizeLocale = (localeValue, localeFallback) => {
+      const localeSource = localeValue && typeof localeValue === "object" ? localeValue : {};
+      const localeBase = localeFallback && typeof localeFallback === "object" ? localeFallback : {};
+      const localeTrustItems = Array.isArray(localeSource.trustItems) ? localeSource.trustItems : localeBase.trustItems;
+      return {
+        badge: toStringValue(localeSource.badge) || localeBase.badge || "",
+        title: toStringValue(localeSource.title) || localeBase.title || "",
+        text: toStringValue(localeSource.text) || localeBase.text || "",
+        primaryButtonLabel: toStringValue(localeSource.primaryButtonLabel) || localeBase.primaryButtonLabel || "",
+        secondaryButtonLabel: toStringValue(localeSource.secondaryButtonLabel) || localeBase.secondaryButtonLabel || "",
+        trustItems: toArray(localeTrustItems)
+          .map((item, index) => ({
+            value: toStringValue(item && item.value) || localeBase.trustItems?.[index]?.value || "",
+            label: toStringValue(item && item.label) || localeBase.trustItems?.[index]?.label || "",
+          }))
+          .filter((item) => item.value || item.label)
+          .slice(0, 3),
+      };
+    };
+
+    return {
+      badge: toStringValue(source.badge) || fallback.badge,
+      title: toStringValue(source.title) || fallback.title,
+      text: toStringValue(source.text) || fallback.text,
+      primaryButtonLabel: toStringValue(source.primaryButtonLabel) || fallback.primaryButtonLabel,
+      primaryButtonLink: toStringValue(source.primaryButtonLink) || fallback.primaryButtonLink,
+      secondaryButtonLabel: toStringValue(source.secondaryButtonLabel) || fallback.secondaryButtonLabel,
+      secondaryButtonLink: toStringValue(source.secondaryButtonLink) || fallback.secondaryButtonLink,
+      trustItems: rawTrustItems
+        .map((item, index) => ({
+          value: toStringValue(item && item.value) || fallback.trustItems[index]?.value || "",
+          label: toStringValue(item && item.label) || fallback.trustItems[index]?.label || "",
+        }))
+        .filter((item) => item.value || item.label)
+        .slice(0, 3),
+      translations: CONTENT_LOCALES.reduce((acc, locale) => {
+        acc[locale] = normalizeLocale(source.translations && source.translations[locale], fallback.translations && fallback.translations[locale]);
+        return acc;
+      }, {}),
+    };
+  };
+
+  const normalizeHomeCtaContent = (value) => {
+    const source = value && typeof value === "object" ? value : {};
+    const fallback = cloneData(DEFAULT_HOME_CTA);
+    const rawMetaItems = Array.isArray(source.metaItems) ? source.metaItems : fallback.metaItems;
+    const normalizeLocale = (localeValue, localeFallback) => {
+      const localeSource = localeValue && typeof localeValue === "object" ? localeValue : {};
+      const localeBase = localeFallback && typeof localeFallback === "object" ? localeFallback : {};
+      const localeMeta = Array.isArray(localeSource.metaItems) ? localeSource.metaItems : localeBase.metaItems;
+      return {
+        badge: toStringValue(localeSource.badge) || localeBase.badge || "",
+        title: toStringValue(localeSource.title) || localeBase.title || "",
+        text: toStringValue(localeSource.text) || localeBase.text || "",
+        metaItems: toArray(localeMeta)
+          .map((item, index) => toStringValue(item) || localeBase.metaItems?.[index] || "")
+          .filter(Boolean)
+          .slice(0, 4),
+        primaryButtonLabel: toStringValue(localeSource.primaryButtonLabel) || localeBase.primaryButtonLabel || "",
+        secondaryButtonLabel: toStringValue(localeSource.secondaryButtonLabel) || localeBase.secondaryButtonLabel || "",
+      };
+    };
+
+    return {
+      badge: toStringValue(source.badge) || fallback.badge,
+      title: toStringValue(source.title) || fallback.title,
+      text: toStringValue(source.text) || fallback.text,
+      metaItems: rawMetaItems
+        .map((item, index) => toStringValue(item) || fallback.metaItems[index] || "")
+        .filter(Boolean)
+        .slice(0, 4),
+      primaryButtonLabel: toStringValue(source.primaryButtonLabel) || fallback.primaryButtonLabel,
+      primaryButtonLink: toStringValue(source.primaryButtonLink) || fallback.primaryButtonLink,
+      secondaryButtonLabel: toStringValue(source.secondaryButtonLabel) || fallback.secondaryButtonLabel,
+      secondaryButtonLink: toStringValue(source.secondaryButtonLink) || fallback.secondaryButtonLink,
+      translations: CONTENT_LOCALES.reduce((acc, locale) => {
+        acc[locale] = normalizeLocale(source.translations && source.translations[locale], fallback.translations && fallback.translations[locale]);
+        return acc;
+      }, {}),
+    };
+  };
+
+  const getConfig = async ({ force = false } = {}) => {
+    if (force) configPromise = null;
+    if (!configPromise) {
+      configPromise = (async () => {
+        let config = normalizePublicConfig(null);
+
+        try {
+          const remoteConfig = await fetch(CONFIG_ENDPOINT, { cache: "no-store" }).then(parseResponse);
+          config = writeCachedConfig(remoteConfig);
+        } catch {
+          config = readCachedConfig();
+        }
+
+        if (!config.supabaseUrl || !config.supabaseAnonKey) {
+          throw new Error("Supabase config tapılmadı. Netlify env və ya local .env faylını yoxlayın.");
+        }
+
+        return config;
+      })();
+    }
+
+    return configPromise;
+  };
+
+  const normalizeSessionShape = (session) => {
+    const source = session && typeof session === "object" ? session : {};
+    const payload = source.access_token ? decodeJwtPayload(source.access_token) : null;
+    const user = source.user && typeof source.user === "object"
+      ? source.user
+      : (payload && payload.sub
+        ? {
+            id: payload.sub,
+            email: payload.email || "",
+            app_metadata: payload.app_metadata || {},
+            user_metadata: payload.user_metadata || {},
+            role: payload.role || "",
+          }
+        : null);
+
+    return {
+      ...source,
+      user,
+      expires_at: source.expires_at || (
+        source.expires_in
+          ? Math.floor(Date.now() / 1000) + Number(source.expires_in)
+          : null
+      ),
+    };
+  };
+
+  const getStoredSession = () => {
+    try {
+      return safeJsonParse(localStorage.getItem(SESSION_KEY), null);
+    } catch {
+      return null;
+    }
+  };
+
+  const setStoredSession = (session) => {
+    if (!session) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+
+    const normalized = normalizeSessionShape(session);
+
+    localStorage.setItem(SESSION_KEY, JSON.stringify(normalized));
+    return normalized;
+  };
+
+  const clearStoredSession = () => {
+    localStorage.removeItem(SESSION_KEY);
+  };
+
+  const isAdminSession = (session) => {
+    const normalized = normalizeSessionShape(session);
+    return Boolean(normalized && normalized.is_admin) || hasAdminRole(decodeJwtPayload(normalized && normalized.access_token));
+  };
+
+  const verifyAdminAccess = async (session) => {
+    const normalizedSession = normalizeSessionShape(session);
+    if (!normalizedSession || !normalizedSession.access_token || !normalizedSession.user || !normalizedSession.user.id) {
+      throw new Error("Admin sessiyasi etibarsizdir.");
+    }
+
+    if (hasAdminRole(decodeJwtPayload(normalizedSession.access_token))) {
+      return true;
+    }
+
+    const config = await getConfig();
+    const url = new URL(`${config.supabaseUrl}/rest/v1/admin_users`);
+    url.searchParams.set("select", "user_id");
+    url.searchParams.set("user_id", `eq.${normalizedSession.user.id}`);
+    url.searchParams.set("limit", "1");
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: config.supabaseAnonKey,
+        Accept: "application/json",
+        Authorization: `Bearer ${normalizedSession.access_token}`,
+        "Cache-Control": "no-store",
+      },
+      cache: "no-store",
+    });
+
+    const rows = await parseResponse(response);
+    if (!Array.isArray(rows) || !rows[0]) {
+      throw new Error("Bu istifadəçidə admin icazəsi yoxdur. Supabase `public.admin_users` cədvəlinə bu auth user əlavə edilməlidir.");
+    }
+
+    return true;
+  };
+
+  const sessionNeedsRefresh = (session) => {
+    if (!session || !session.access_token) return true;
+    if (!session.expires_at) return false;
+    return (Number(session.expires_at) - 60) <= Math.floor(Date.now() / 1000);
+  };
+
+  const signInAdmin = async ({ email, password }) => {
+    try {
+      const config = await getConfig();
+      const response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          apikey: config.supabaseAnonKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: toStringValue(email),
+          password: String(password || ""),
+        }),
+      });
+
+      const session = normalizeSessionShape(await parseResponse(response));
+      await verifyAdminAccess(session);
+      return setStoredSession({
+        ...session,
+        is_admin: true,
+      });
+    } catch (error) {
+      clearStoredSession();
+      throw new Error(getFriendlyAdminErrorMessage(error));
+    }
+  };
+
+  const refreshAdminSession = async () => {
+    const currentSession = getStoredSession();
+    if (!currentSession || !currentSession.refresh_token) {
+      clearStoredSession();
+      throw new Error("Admin sessiyasi bitib. Yeniden daxil olun.");
+    }
+
+    const config = await getConfig();
+    const response = await fetch(`${config.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        apikey: config.supabaseAnonKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refresh_token: currentSession.refresh_token,
+      }),
+    });
+
+    const refreshedSession = normalizeSessionShape(await parseResponse(response));
+    const mergedSession = normalizeSessionShape({
+      ...currentSession,
+      ...refreshedSession,
+    });
+
+    try {
+      await verifyAdminAccess(mergedSession);
+    } catch (error) {
+      clearStoredSession();
+      throw new Error(getFriendlyAdminErrorMessage(error));
+    }
+
+    return setStoredSession({
+      ...mergedSession,
+      is_admin: true,
+    });
+  };
+
+  const ensureAdminSession = async () => {
+    let session = normalizeSessionShape(getStoredSession());
+    if (!session) {
+      throw new Error("Admin sessiyasi tapilmadi.");
+    }
+
+    if (!isAdminSession(session)) {
+      try {
+        await verifyAdminAccess(session);
+        session = setStoredSession({
+          ...session,
+          is_admin: true,
+        });
+      } catch (error) {
+        clearStoredSession();
+        throw new Error(getFriendlyAdminErrorMessage(error));
+      }
+    }
+
+    if (sessionNeedsRefresh(session)) {
+      session = await refreshAdminSession();
+    }
+
+    return session;
+  };
+
+  const requestRest = async (table, {
+    method = "GET",
+    filters = {},
+    select = "*",
+    order = "",
+    limit = null,
+    body,
+    admin = false,
+    prefer = "",
+    headers = {},
+    allowEmpty = false,
+  } = {}) => {
+    const config = await getConfig();
+    const url = new URL(`${config.supabaseUrl}/rest/v1/${table}`);
+
+    if (select) url.searchParams.set("select", select);
+    if (order) url.searchParams.set("order", order);
+    if (limit !== null && limit !== undefined) url.searchParams.set("limit", String(limit));
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.set(key, value);
+      }
+    });
+
+    let accessToken = "";
+    if (admin) {
+      accessToken = (await ensureAdminSession()).access_token;
+    }
+
+    const requestHeaders = {
+      apikey: config.supabaseAnonKey,
+      Accept: "application/json",
+      ...headers,
+    };
+
+    if (accessToken) {
+      requestHeaders.Authorization = `Bearer ${accessToken}`;
+    }
+
+    let requestBody;
+    if (body !== undefined) {
+      requestHeaders["Content-Type"] = "application/json";
+      requestBody = JSON.stringify(body);
+    }
+
+    if (prefer) requestHeaders.Prefer = prefer;
+
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: requestBody,
+      cache: method === "GET" ? "no-store" : "default",
+    });
+
+    if (allowEmpty && response.status === 404) return null;
+    return parseResponse(response);
+  };
+
+  const requestCarsRest = async (options = {}) => {
+    const primaryOptions = { ...options };
+
+    try {
+      const rows = await requestRest("cars", primaryOptions);
+      carsSchemaMode = "full";
+      return rows;
+    } catch (error) {
+      if (!isLegacyCarsSchemaError(error)) {
+        throw error;
+      }
+
+      carsSchemaMode = "legacy";
+      const fallbackOptions = { ...primaryOptions };
+
+      if (fallbackOptions.select === PUBLIC_CAR_COLUMNS) {
+        fallbackOptions.select = LEGACY_PUBLIC_CAR_COLUMNS;
+      }
+
+      if (fallbackOptions.body && typeof fallbackOptions.body === "object" && !Array.isArray(fallbackOptions.body)) {
+        fallbackOptions.body = stripLegacyCarFields(fallbackOptions.body);
+      }
+
+      return requestRest("cars", fallbackOptions);
+    }
+  };
+
+  const listPublishedCars = async ({ force = false, featuredOnly = false, limit = null } = {}) => {
+    if (publishedCarsCache && !force && !featuredOnly && limit === null) {
+      return publishedCarsCache.slice();
+    }
+
+    const rows = await requestCarsRest({
+      filters: {
+        status: "eq.published",
+        ...(featuredOnly ? { featured: "eq.true" } : {}),
+      },
+      select: PUBLIC_CAR_COLUMNS,
+      order: "featured.desc,sort_order.asc,updated_at.desc,title.asc",
+      limit,
+    });
+
+    const cars = await applyLegacyCarStatusOverrides(
+      Array.isArray(rows) ? rows.map(normalizeCarRecord) : [],
+      { force }
+    );
+    if (!featuredOnly && limit === null) {
+      publishedCarsCache = cars.slice();
+    }
+    return cars;
+  };
+
+  const getPublishedCarBySlug = async (slug) => {
+    const cleanSlug = toStringValue(slug);
+    if (!cleanSlug) return null;
+
+    if (publishedCarsCache) {
+      const cached = publishedCarsCache.find((car) => car.slug === cleanSlug);
+      if (cached) return cached;
+    }
+
+    const rows = await requestCarsRest({
+      filters: {
+        slug: `eq.${cleanSlug}`,
+        status: "eq.published",
+      },
+      select: PUBLIC_CAR_COLUMNS,
+      limit: 1,
+      allowEmpty: true,
+    });
+
+    if (!Array.isArray(rows) || !rows[0]) return null;
+    const [car] = await applyLegacyCarStatusOverrides([normalizeCarRecord(rows[0])], { force: true });
+    return car || null;
+  };
+
+  const listAdminCars = async () => {
+    const rows = await requestCarsRest({
+      admin: true,
+      select: PUBLIC_CAR_COLUMNS,
+      order: "featured.desc,sort_order.asc,updated_at.desc,title.asc",
+    });
+
+    return applyLegacyCarStatusOverrides(Array.isArray(rows) ? rows.map(normalizeCarRecord) : [], { force: true });
+  };
+
+  const createCar = async (input) => {
+    const serialized = serializeCarPayload(input);
+    const rows = await requestCarsRest({
+      admin: true,
+      method: "POST",
+      body: serialized,
+      prefer: "return=representation",
+    });
+
+    publishedCarsCache = null;
+    const savedCar = Array.isArray(rows) && rows[0] ? normalizeCarRecord(rows[0]) : null;
+    const fallbackCar = savedCar || (carsSchemaMode === "legacy"
+      ? {
+          slug: serialized.slug,
+          status: serialized.status,
+          availabilityStatus: serialized.availability_status,
+        }
+      : null);
+    return persistLegacyCarStatus(
+      fallbackCar,
+      serialized.availability_status,
+      serialized.status
+    );
+  };
+
+  const updateCar = async (id, input) => {
+    const serialized = serializeCarPayload(input);
+    const rows = await requestCarsRest({
+      admin: true,
+      method: "PATCH",
+      filters: { id: `eq.${toStringValue(id)}` },
+      body: serialized,
+      prefer: "return=representation",
+    });
+
+    publishedCarsCache = null;
+    const savedCar = Array.isArray(rows) && rows[0] ? normalizeCarRecord(rows[0]) : null;
+    const fallbackCar = savedCar || (carsSchemaMode === "legacy"
+      ? {
+          slug: serialized.slug,
+          status: serialized.status,
+          availabilityStatus: serialized.availability_status,
+        }
+      : null);
+    return persistLegacyCarStatus(
+      fallbackCar,
+      serialized.availability_status,
+      serialized.status
+    );
+  };
+
+  const patchCar = async (id, partial) => {
+    const payload = {};
+    const normalized = partial && typeof partial === "object" ? partial : {};
+    const serialized = serializeCarPayload(normalized);
+
+    Object.keys(normalized).forEach((key) => {
+      if (key === "dailyPrice") payload.daily_price = serialized.daily_price;
+      else if (key === "monthlyPrice") payload.monthly_price = serialized.monthly_price;
+      else if (key === "fuelType") payload.fuel_type = serialized.fuel_type;
+      else if (key === "coverImageUrl") payload.cover_image_url = serialized.cover_image_url;
+      else if (key === "galleryImages") payload.gallery_images = serialized.gallery_images;
+      else if (key === "sortOrder") payload.sort_order = serialized.sort_order;
+      else if (key === "features") payload.features = serialized.features;
+      else if (key === "featured") payload.featured = serialized.featured;
+      else if (key === "status") payload.status = serialized.status;
+      else if (key === "stockCount") payload.stock_count = serialized.stock_count;
+      else if (key === "availabilityStatus") payload.availability_status = serialized.availability_status;
+      else if (key === "category") payload.category = serialized.category;
+      else if (key === "city") payload.city = serialized.city;
+      else if (key === "color") payload.color = serialized.color;
+      else if (key === "transmission") payload.transmission = serialized.transmission;
+      else if (key === "seats") payload.seats = serialized.seats;
+      else if (key === "brand") payload.brand = serialized.brand;
+      else if (key === "model") payload.model = serialized.model;
+      else if (key === "title") payload.title = serialized.title;
+      else if (key === "slug") payload.slug = serialized.slug;
+      else if (key === "description") payload.description = serialized.description;
+      else if (key === "summary") payload.summary = serialized.summary;
+      else if (key === "year") payload.year = serialized.year;
+    });
+
+    const rows = await requestCarsRest({
+      admin: true,
+      method: "PATCH",
+      filters: { id: `eq.${toStringValue(id)}` },
+      body: payload,
+      prefer: "return=representation",
+    });
+
+    publishedCarsCache = null;
+    const savedCar = Array.isArray(rows) && rows[0] ? normalizeCarRecord(rows[0]) : null;
+    const fallbackCar = savedCar || (carsSchemaMode === "legacy"
+      ? {
+          slug: serialized.slug,
+          status: payload.status || serialized.status,
+          availabilityStatus: payload.availability_status || serialized.availability_status,
+        }
+      : null);
+    return persistLegacyCarStatus(
+      fallbackCar,
+      "availabilityStatus" in normalized ? serialized.availability_status : (savedCar ? savedCar.availabilityStatus : "available"),
+      "status" in normalized ? serialized.status : (savedCar ? savedCar.status : "published")
+    );
+  };
+
+  const deleteCar = async (id, slug = "") => {
+    await requestCarsRest({
+      admin: true,
+      method: "DELETE",
+      filters: { id: `eq.${toStringValue(id)}` },
+      prefer: "return=minimal",
+    });
+    publishedCarsCache = null;
+
+    if (carsSchemaMode === "legacy" && toStringValue(slug)) {
+      const overrides = await getCarStatusOverrides();
+      if (overrides[toStringValue(slug)]) {
+        const nextOverrides = { ...overrides };
+        delete nextOverrides[toStringValue(slug)];
+        await saveCarStatusOverrides(nextOverrides);
+      }
+    }
+  };
+
+  const createReservationLead = async (input) => {
+    const rows = await requestRest("reservations", {
+      method: "POST",
+      select: "",
+      body: serializeReservationPayload(input),
+      prefer: "return=minimal",
+    });
+
+    return Array.isArray(rows) && rows[0] ? normalizeReservationRecord(rows[0]) : null;
+  };
+
+  const listAdminReservations = async () => {
+    const rows = await requestRest("reservations", {
+      admin: true,
+      select: RESERVATION_COLUMNS,
+      order: "created_at.desc",
+    });
+
+    return Array.isArray(rows) ? rows.map(normalizeReservationRecord) : [];
+  };
+
+  const updateReservationLead = async (id, partial = {}) => {
+    const payload = {};
+    if ("status" in partial) payload.status = normalizeReservationStatus(partial.status);
+    if ("note" in partial) payload.note = toStringValue(partial.note);
+
+    const rows = await requestRest("reservations", {
+      admin: true,
+      method: "PATCH",
+      filters: { id: `eq.${toStringValue(id)}` },
+      body: payload,
+      select: RESERVATION_COLUMNS,
+      prefer: "return=representation",
+    });
+
+    return Array.isArray(rows) && rows[0] ? normalizeReservationRecord(rows[0]) : null;
+  };
+
+  const getSiteContent = async (key, { admin = false, fallback = null } = {}) => {
+    const cleanKey = toStringValue(key);
+    if (!cleanKey) return cloneData(fallback);
+
+    let rows;
+    try {
+      rows = await requestRest("site_content", {
+        admin,
+        select: SITE_CONTENT_COLUMNS,
+        filters: {
+          key: `eq.${cleanKey}`,
+        },
+        limit: 1,
+        allowEmpty: true,
+      });
+      siteContentSchemaMode = "full";
+    } catch (error) {
+      if (!isMissingSiteContentTableError(error)) {
+        throw error;
+      }
+      siteContentSchemaMode = "fallback";
+      return readSiteContentFallback(cleanKey, fallback);
+    }
+
+    if (!Array.isArray(rows) || !rows[0]) {
+      return readSiteContentFallback(cleanKey, fallback);
+    }
+
+    return rows[0].value !== undefined ? rows[0].value : cloneData(fallback);
+  };
+
+  const saveSiteContent = async (key, value) => {
+    const cleanKey = toStringValue(key);
+    if (!cleanKey) {
+      throw new Error("Content key boş ola bilməz.");
+    }
+
+    let rows;
+    try {
+      rows = await requestRest("site_content", {
+        admin: true,
+        method: "POST",
+        select: SITE_CONTENT_COLUMNS,
+        filters: {
+          on_conflict: "key",
+        },
+        body: {
+          key: cleanKey,
+          value,
+        },
+        prefer: "resolution=merge-duplicates,return=representation",
+      });
+      siteContentSchemaMode = "full";
+    } catch (error) {
+      if (!isMissingSiteContentTableError(error)) {
+        throw error;
+      }
+      siteContentSchemaMode = "fallback";
+      return writeSiteContentFallback(cleanKey, value);
+    }
+
+    const nextValue = Array.isArray(rows) && rows[0] ? rows[0].value : cloneData(value);
+    writeSiteContentFallback(cleanKey, nextValue);
+    return nextValue;
+  };
+
+  const getHomeSpotlightContent = async () => normalizeHomeSpotlightContent(
+    await getSiteContent("home_spotlight", { fallback: DEFAULT_HOME_SPOTLIGHT }),
+  );
+
+  const saveHomeSpotlightContent = async (value) => saveSiteContent(
+    "home_spotlight",
+    normalizeHomeSpotlightContent(value),
+  );
+
+  const getHomeHeroContent = async () => normalizeHomeHeroContent(
+    await getSiteContent("home_hero", { fallback: DEFAULT_HOME_HERO }),
+  );
+
+  const saveHomeHeroContent = async (value) => saveSiteContent(
+    "home_hero",
+    normalizeHomeHeroContent(value),
+  );
+
+  const getHomeCtaContent = async () => normalizeHomeCtaContent(
+    await getSiteContent("home_cta", { fallback: DEFAULT_HOME_CTA }),
+  );
+
+  const saveHomeCtaContent = async (value) => saveSiteContent(
+    "home_cta",
+    normalizeHomeCtaContent(value),
+  );
+
+  const uploadImage = async (file, folder = "cars") => {
+    if (!(file instanceof File)) {
+      throw new Error("Sekil fayli secilmeyib.");
+    }
+
+    const config = await getConfig();
+    const session = await ensureAdminSession();
+    const extension = String(file.name || "image").split(".").pop().toLowerCase();
+    const basename = slugify(String(file.name || "image").replace(/\.[^.]+$/, "")) || "image";
+    const filePath = `${folder}/${Date.now()}-${basename}.${extension || "jpg"}`;
+
+    const response = await fetch(
+      `${config.supabaseUrl}/storage/v1/object/${encodeURIComponent(config.storageBucket)}/${encodeStoragePath(filePath)}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.supabaseAnonKey,
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": file.type || "application/octet-stream",
+          "x-upsert": "true",
+        },
+        body: file,
+      }
+    );
+
+    await parseResponse(response);
+
+    return {
+      path: filePath,
+      publicUrl: buildPublicAssetUrlInternal(config.supabaseUrl, config.storageBucket, filePath),
+    };
+  };
+
+  const listMedia = async (folder = "cars") => {
+    const config = await getConfig();
+    const session = await ensureAdminSession();
+    const response = await fetch(
+      `${config.supabaseUrl}/storage/v1/object/list/${encodeURIComponent(config.storageBucket)}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: config.supabaseAnonKey,
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          limit: 200,
+          offset: 0,
+          prefix: folder,
+          sortBy: {
+            column: "updated_at",
+            order: "desc",
+          },
+        }),
+      }
+    );
+
+    const rows = await parseResponse(response);
+    if (!Array.isArray(rows)) return [];
+
+    return rows
+      .filter((item) => item && item.name)
+      .map((item) => {
+        const path = `${folder}/${item.name}`;
+        return {
+          name: item.name,
+          path,
+          url: buildPublicAssetUrlInternal(config.supabaseUrl, config.storageBucket, path),
+          updatedAt: item.updated_at || item.created_at || "",
+          metadata: item.metadata || {},
+        };
+      });
+  };
+
+  const deleteMedia = async (path) => {
+    const cleanPath = toStringValue(path);
+    if (!cleanPath) return;
+
+    const config = await getConfig();
+    const session = await ensureAdminSession();
+    const response = await fetch(
+      `${config.supabaseUrl}/storage/v1/object/${encodeURIComponent(config.storageBucket)}/${encodeStoragePath(cleanPath)}`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: config.supabaseAnonKey,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    await parseResponse(response);
+  };
+
+  const extractStoragePathFromUrlInternal = (config, url) => {
+    const marker = `/storage/v1/object/public/${encodeURIComponent(config.storageBucket)}/`;
+    const stringUrl = String(url || "");
+    if (!stringUrl.includes(marker)) return "";
+    return decodeURIComponent(stringUrl.split(marker)[1].split("?")[0]);
+  };
+
+  window.RentacarData = {
+    PUBLIC_CAR_COLUMNS,
+    SITE_CONTENT_COLUMNS,
+    RESERVATION_COLUMNS,
+    DEFAULT_HOME_HERO: cloneData(DEFAULT_HOME_HERO),
+    DEFAULT_HOME_CTA: cloneData(DEFAULT_HOME_CTA),
+    DEFAULT_HOME_SPOTLIGHT: cloneData(DEFAULT_HOME_SPOTLIGHT),
+    getConfig,
+    getStoredSession,
+    setStoredSession,
+    clearStoredSession,
+    isAdminSession,
+    signInAdmin,
+    ensureAdminSession,
+    getCarsSchemaMode: () => carsSchemaMode,
+    getSiteContentSchemaMode: () => siteContentSchemaMode,
+    listPublishedCars,
+    getPublishedCarBySlug,
+    listAdminCars,
+    createCar,
+    updateCar,
+    patchCar,
+    deleteCar,
+    createReservationLead,
+    listAdminReservations,
+    updateReservationLead,
+    getSiteContent,
+    saveSiteContent,
+    normalizeHomeSpotlightContent,
+    normalizeHomeHeroContent,
+    normalizeHomeCtaContent,
+    getHomeHeroContent,
+    saveHomeHeroContent,
+    getHomeCtaContent,
+    saveHomeCtaContent,
+    getHomeSpotlightContent,
+    saveHomeSpotlightContent,
+    uploadImage,
+    listMedia,
+    deleteMedia,
+    normalizeCarRecord,
+    normalizeReservationRecord,
+    serializeCarPayload,
+    serializeReservationPayload,
+    extractStoragePathFromUrl: async (url) => extractStoragePathFromUrlInternal(await getConfig(), url),
+    buildPublicAssetUrl: async (path) => {
+      const config = await getConfig();
+      return buildPublicAssetUrlInternal(config.supabaseUrl, config.storageBucket, path);
+    },
+  };
+})();
