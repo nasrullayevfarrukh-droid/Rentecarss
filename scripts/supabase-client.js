@@ -845,10 +845,10 @@
         ? status
         : { availabilityStatus: status };
       const cleanStatus = normalizeAvailabilityStatus(statusSource.availabilityStatus, "");
-      if (cleanSlug && cleanStatus === "rented") {
+      if (cleanSlug && ["reserved", "rented", "expired"].includes(cleanStatus)) {
         acc[cleanSlug] = {
-          availabilityStatus: "rented",
-          rentalDays: toInteger(statusSource.rentalDays, null),
+          availabilityStatus: cleanStatus,
+          rentalDays: cleanStatus === "rented" ? toInteger(statusSource.rentalDays, null) : null,
         };
       }
       return acc;
@@ -892,10 +892,13 @@
         };
       }
 
+      const override = overrides[car.slug];
+      const overrideStatus = normalizeAvailabilityStatus(override && override.availabilityStatus, "available");
+
       return {
         ...car,
-        availabilityStatus: overrides[car.slug] && overrides[car.slug].availabilityStatus === "rented" ? "rented" : "available",
-        rentalDays: overrides[car.slug] ? toInteger(overrides[car.slug].rentalDays, null) : null,
+        availabilityStatus: ["reserved", "rented", "expired"].includes(overrideStatus) ? overrideStatus : "available",
+        rentalDays: overrideStatus === "rented" && override ? toInteger(override.rentalDays, null) : null,
       };
     });
   };
@@ -914,11 +917,11 @@
       ? toInteger(desiredRentalDays !== null && desiredRentalDays !== undefined ? desiredRentalDays : car.rentalDays, null)
       : null;
 
-    if (cleanStatus !== "published" || cleanAvailability !== "rented") {
+    if (cleanStatus !== "published" || cleanAvailability === "available") {
       delete nextOverrides[cleanSlug];
     } else {
       nextOverrides[cleanSlug] = {
-        availabilityStatus: "rented",
+        availabilityStatus: cleanAvailability,
         rentalDays: cleanRentalDays,
       };
     }
