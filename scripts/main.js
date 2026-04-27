@@ -1535,7 +1535,9 @@
         <div class="vehicle-visual__stage">
           ${badgeMarkup}
           <span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>
-          ${scheduleGlanceMarkup}
+          <div class="vehicle-visual__overlay">
+            ${scheduleGlanceMarkup}
+          </div>
         </div>
       `;
       return { setImage: () => {} };
@@ -1548,12 +1550,9 @@
         <img class="vehicle-visual__image" data-vehicle-stage-image src="${escapeHtml(images[0])}" alt="${escapeHtml(car.title)}" loading="eager" />
         <button class="vehicle-visual__nav vehicle-visual__nav--next" type="button" data-vehicle-nav="next" aria-label="Next image"${images.length > 1 ? "" : " hidden"}>&rsaquo;</button>
         <div class="vehicle-visual__overlay">
-          <div class="vehicle-visual__copy">
-            <span class="vehicle-visual__caption">${escapeHtml(car.title)}</span>
-            ${scheduleGlanceMarkup}
-          </div>
-          <span class="vehicle-visual__count" data-vehicle-count>${String(1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</span>
+          ${scheduleGlanceMarkup}
         </div>
+        <span class="vehicle-visual__count" data-vehicle-count>${String(1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</span>
       </div>
       ${images.length > 1 ? `
         <div class="vehicle-visual__thumbs">
