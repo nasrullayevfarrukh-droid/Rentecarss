@@ -148,9 +148,11 @@
                 <span>Status</span>
                 <select data-cars-status>
                   <option value="all">Bütün statuslar</option>
-                  <option value="active">Aktivdir</option>
-                  <option value="rented">İcarədədir</option>
-                  <option value="archived">Arxiv</option>
+                  <option value="active">Müsait</option>
+                  <option value="reserved">Rezerve</option>
+                  <option value="rented">Kirada</option>
+                  <option value="expired">Süresi doldu</option>
+                  <option value="archived">Arşiv</option>
                 </select>
               </label>
             </div>
@@ -162,31 +164,77 @@
           <section class="admin-view" data-view="reservations">
             <div class="admin-page-head admin-page-head--stack">
               <div>
-                <span class="admin-eyebrow">Rezervlər</span>
-                <h2>Müştəri rezervlərini rahat izləyin</h2>
-                <p>Burada saytdan göndərilən rezervlər görünür. Yeni, baxıldı, saxta və arxiv statusları ilə idarə edə bilərsən.</p>
+                <span class="admin-eyebrow">Rezervasyon ve kiralama</span>
+                <h2>Araç takvimi ve web talepleri</h2>
+                <p>Bu bölümde araçların saatlik rezervasyon planını, aktif kiralamayı ve siteden gelen müşteri taleplerini birlikte yönetebilirsin.</p>
+              </div>
+              <div class="admin-page-head__actions">
+                <button class="admin-button admin-button--primary" type="button" data-open-schedule-modal>Yeni rezervasyon / kiralama</button>
               </div>
             </div>
 
-            <div class="admin-toolbar">
-              <label class="admin-search-field">
-                <span>Axtarış</span>
-                <input type="search" data-reservations-search placeholder="Ad, telefon, maşın və ya vəsiqə üzrə axtar" />
-              </label>
-              <label class="admin-search-field">
-                <span>Rezerv statusu</span>
-                <select data-reservations-status>
-                  <option value="all">Bütün rezervlər</option>
-                  <option value="new">Yeni</option>
-                  <option value="reviewed">Baxıldı</option>
-                  <option value="spam">Saxta</option>
-                  <option value="archived">Arxiv</option>
-                </select>
-              </label>
-            </div>
+            <article class="admin-card">
+              <div class="admin-card__head">
+                <div>
+                  <span class="admin-eyebrow">Araç takvimi</span>
+                  <h3>Rezerve ve kirada olan araçlar</h3>
+                </div>
+              </div>
 
-            <div class="admin-list" data-reservations-list></div>
-            <div class="admin-empty-state" data-reservations-empty hidden>Hələ rezerv göndərilməyib.</div>
+              <div class="admin-toolbar">
+                <label class="admin-search-field">
+                  <span>Ara</span>
+                  <input type="search" data-schedule-search placeholder="Araç, müşteri veya telefon ile ara" />
+                </label>
+                <label class="admin-search-field">
+                  <span>Durum</span>
+                  <select data-schedule-status>
+                    <option value="all">Tüm durumlar</option>
+                    <option value="reserved">Rezerve</option>
+                    <option value="rented">Kirada</option>
+                    <option value="expired">Süresi doldu</option>
+                  </select>
+                </label>
+                <label class="admin-search-field">
+                  <span>Araç</span>
+                  <select data-schedule-car>
+                    <option value="all">Tüm araçlar</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="admin-list" data-schedule-list></div>
+              <div class="admin-empty-state" data-schedule-empty hidden>Henüz rezervasyon veya kiralama planı yok.</div>
+            </article>
+
+            <article class="admin-card">
+              <div class="admin-card__head">
+                <div>
+                  <span class="admin-eyebrow">Web talepleri</span>
+                  <h3>Formdan gelen müşteri mesajları</h3>
+                </div>
+              </div>
+
+              <div class="admin-toolbar">
+                <label class="admin-search-field">
+                  <span>Axtarış</span>
+                  <input type="search" data-reservations-search placeholder="Ad, telefon, maşın və ya vəsiqə üzrə axtar" />
+                </label>
+                <label class="admin-search-field">
+                  <span>Rezerv statusu</span>
+                  <select data-reservations-status>
+                    <option value="all">Bütün rezervlər</option>
+                    <option value="new">Yeni</option>
+                    <option value="reviewed">Baxıldı</option>
+                    <option value="spam">Saxta</option>
+                    <option value="archived">Arxiv</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="admin-list" data-reservations-list></div>
+              <div class="admin-empty-state" data-reservations-empty hidden>Hələ rezerv göndərilməyib.</div>
+            </article>
           </section>
 
           <section class="admin-view" data-view="media">
@@ -469,6 +517,78 @@
       </div>
     </div>
 
+    <div class="admin-modal" data-dialog="schedule" hidden>
+      <div class="admin-modal__backdrop" data-close-schedule-dialog></div>
+      <div class="admin-modal__panel admin-modal__panel--small">
+        <div class="admin-modal__head">
+          <div>
+            <span class="admin-eyebrow" data-schedule-dialog-mode>Yeni kayıt</span>
+            <h3 data-schedule-dialog-title>Rezervasyon / kiralama yönet</h3>
+          </div>
+          <button class="admin-icon-button" type="button" data-close-schedule-dialog aria-label="Bağla">✕</button>
+        </div>
+
+        <form class="admin-form" data-schedule-form>
+          <input type="hidden" name="id" />
+          <div class="admin-form-grid admin-form-grid--two">
+            <label class="admin-field admin-field--full">
+              <span>Araç</span>
+              <select name="carId" required data-schedule-car-select>
+                <option value="">Araç seç</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Durum</span>
+              <select name="status" required>
+                <option value="reserved">Rezerve</option>
+                <option value="rented">Kirada</option>
+                <option value="expired">Süresi doldu</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Müşteri adı</span>
+              <input type="text" name="customerName" required />
+            </label>
+            <label class="admin-field">
+              <span>Müşteri telefonu</span>
+              <input type="tel" name="customerPhone" placeholder="+994 99 889 19 19" required />
+            </label>
+            <label class="admin-field">
+              <span>Başlangıç tarih ve saat</span>
+              <input type="datetime-local" name="startDateTime" required />
+            </label>
+            <label class="admin-field">
+              <span>Kiralama gün sayısı</span>
+              <input type="number" name="rentalDays" min="1" max="365" step="1" value="1" required />
+            </label>
+            <label class="admin-field">
+              <span>Bitiş tarih ve saat</span>
+              <input type="datetime-local" name="endDateTime" required />
+              <small>Başlangıç ve gün sayısı değişince otomatik hesaplanır. İstersen elle de değiştirebilirsin.</small>
+            </label>
+            <div class="admin-field">
+              <span>Hızlı işlem</span>
+              <button class="admin-mini-button admin-mini-button--wide" type="button" data-schedule-recalculate>Bitişi yeniden hesapla</button>
+            </div>
+            <label class="admin-field admin-field--full">
+              <span>Not</span>
+              <textarea name="note" rows="4" placeholder="Teslim, ödeme veya özel not"></textarea>
+            </label>
+          </div>
+
+          <div class="admin-note-list" data-schedule-preview></div>
+          <p class="admin-inline-feedback" data-schedule-feedback></p>
+
+          <div class="admin-modal__footer">
+            <div class="admin-modal__actions">
+              <button class="admin-button admin-button--secondary" type="button" data-close-schedule-dialog>Vazgeç</button>
+              <button class="admin-button admin-button--primary" type="submit">Kaydı kaydet</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <div class="admin-modal" data-dialog="car" hidden>
       <div class="admin-modal__backdrop" data-close-dialog></div>
       <div class="admin-modal__panel admin-modal__panel--wide">
@@ -544,17 +664,19 @@
               <input type="number" name="seats" min="1" max="20" required />
             </label>
             <label class="admin-field">
-              <span>Vəziyyət</span>
+              <span>Yedek durum</span>
               <select name="displayStatus">
-                <option value="active">Aktivdir</option>
-                <option value="rented">İcarədədir</option>
-                <option value="archived">Arxiv</option>
+                <option value="active">Müsait</option>
+                <option value="reserved">Rezerve</option>
+                <option value="rented">Kirada</option>
+                <option value="expired">Süresi doldu</option>
+                <option value="archived">Arşiv</option>
               </select>
             </label>
             <label class="admin-field" data-rental-days-field hidden>
-              <span>Neçə gün icarədədir</span>
-              <input type="number" name="rentalDays" min="1" max="365" step="1" placeholder="Məsələn 3" />
-              <small>Yalnız "İcarədədir" seçiləndə doldurulur.</small>
+              <span>Manuel kiralama günü</span>
+              <input type="number" name="rentalDays" min="1" max="365" step="1" placeholder="Örnek 3" />
+              <small>Saatlik takvim yerine yedek durum kullanırsan doldurulur.</small>
             </label>
             <label class="admin-field admin-field--full">
               <span>Qısa xülasə</span>

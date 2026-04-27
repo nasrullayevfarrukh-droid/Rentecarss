@@ -639,6 +639,11 @@ img {
   background: rgba(30, 163, 105, 0.12);
 }
 
+.admin-badge--reserved {
+  color: #b3671f;
+  background: rgba(255, 167, 38, 0.16);
+}
+
 .admin-badge--unavailable {
   color: var(--danger);
   background: rgba(202, 77, 67, 0.12);
@@ -647,6 +652,11 @@ img {
 .admin-badge--rented {
   color: #6a6d76;
   background: rgba(106, 109, 118, 0.16);
+}
+
+.admin-badge--expired {
+  color: var(--danger);
+  background: rgba(202, 77, 67, 0.12);
 }
 
 .admin-chip-row {
@@ -1638,9 +1648,19 @@ body[data-admin-theme="dark"] .admin-badge--archived {
   background: rgba(102, 112, 133, 0.22);
 }
 
+body[data-admin-theme="dark"] .admin-badge--reserved {
+  color: #ffd08f;
+  background: rgba(255, 167, 38, 0.2);
+}
+
 body[data-admin-theme="dark"] .admin-badge--rented {
   color: #eef1f5;
   background: rgba(131, 138, 148, 0.24);
+}
+
+body[data-admin-theme="dark"] .admin-badge--expired {
+  color: #ffb9a9;
+  background: rgba(202, 77, 67, 0.22);
 }
 
 body[data-admin-theme="dark"] .admin-card__head span,
@@ -1749,8 +1769,25 @@ body[data-admin-theme="dark"] .admin-inline-feedback--page {
   min-width: 180px;
 }
 
+.admin-mini-button--wide {
+  width: 100%;
+  justify-content: center;
+}
+
+[data-schedule-preview] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 body[data-admin-theme="dark"] .admin-status-control span {
   color: #d9c7bb;
+}
+
+@media (max-width: 720px) {
+  [data-schedule-preview] {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Brand name polish: Rentacar_SS */

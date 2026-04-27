@@ -62,6 +62,29 @@
     "created_at",
     "updated_at"
   ].join(",");
+  const CAR_RESERVATION_COLUMNS = [
+    "id",
+    "car_id",
+    "status",
+    "customer_name",
+    "customer_phone",
+    "start_at",
+    "rental_days",
+    "end_at",
+    "note",
+    "created_at",
+    "updated_at"
+  ].join(",");
+  const PUBLIC_CAR_RESERVATION_COLUMNS = [
+    "id",
+    "car_id",
+    "status",
+    "start_at",
+    "rental_days",
+    "end_at",
+    "created_at",
+    "updated_at"
+  ].join(",");
   const DEFAULT_HOME_SPOTLIGHT = {
     badge: "Sadə iş axını",
     title: "Model seçimi, əlaqə və rezervasiya eyni sistemdə saxlanılıb",
@@ -214,9 +237,11 @@
 
   let configPromise = null;
   let publishedCarsCache = null;
+  let publicCarReservationsCache = null;
   let carsSchemaMode = "full";
   let legacyCarStatusOverridesCache = null;
   let siteContentSchemaMode = "full";
+  let carReservationsSchemaMode = "full";
 
   const safeJsonParse = (value, fallback = null) => {
     try {
@@ -341,14 +366,34 @@
 
   const normalizeAvailabilityStatus = (value, fallback = "available") => {
     const clean = toStringValue(value).toLowerCase();
-    if (["available", "rented", "unavailable"].includes(clean)) return clean;
-    return fallback;
+    const normalizedFallback = (() => {
+      const fallbackValue = toStringValue(fallback).toLowerCase();
+      if (fallbackValue === "unavailable") return "expired";
+      if (["available", "reserved", "rented", "expired"].includes(fallbackValue)) return fallbackValue;
+      return "available";
+    })();
+    if (["available", "reserved", "rented", "expired", "unavailable"].includes(clean)) {
+      return clean === "unavailable" ? "expired" : clean;
+    }
+    return normalizedFallback;
   };
 
   const normalizeReservationStatus = (value, fallback = "new") => {
     const clean = toStringValue(value).toLowerCase();
     if (["new", "reviewed", "spam", "archived"].includes(clean)) return clean;
     return fallback;
+  };
+
+  const normalizeCarReservationStatus = (value, fallback = "reserved") => {
+    const clean = toStringValue(value).toLowerCase();
+    if (["reserved", "rented", "expired"].includes(clean)) return clean;
+    return fallback;
+  };
+
+  const toTimestamp = (value) => {
+    if (!value) return null;
+    const numeric = Date.parse(String(value));
+    return Number.isFinite(numeric) ? numeric : null;
   };
 
   const toArray = (value) => {
@@ -393,6 +438,26 @@
       || message.includes("relation \"public.site_content\" does not exist")
       || message.includes("could not find the table 'public.site_content' in the schema cache")
       || message.includes("could not find the table \"public.site_content\" in the schema cache")
+    );
+  };
+
+  const isMissingCarReservationsSchemaError = (error) => {
+    const message = [
+      getErrorText(error),
+      safeJsonParse(JSON.stringify(error && error.payload ? error.payload : {}), ""),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      message.includes("public.car_reservations")
+      || message.includes("car_reservations")
+      || message.includes("public_car_reservations")
+      || message.includes("relation \"public.car_reservations\" does not exist")
+      || message.includes("relation \"public.public_car_reservations\" does not exist")
+      || message.includes("could not find the table 'public.car_reservations' in the schema cache")
+      || message.includes("could not find the table 'public.public_car_reservations' in the schema cache")
     );
   };
 
@@ -459,10 +524,7 @@
     featured: Boolean(record.featured),
     status: toStringValue(record.status || "draft"),
     stockCount: toInteger(record.stock_count, 1),
-    availabilityStatus: normalizeAvailabilityStatus(
-      record.availability_status,
-      toInteger(record.stock_count, 1) === 0 ? "unavailable" : "available"
-    ),
+    availabilityStatus: normalizeAvailabilityStatus(record.availability_status, "available"),
     rentalDays: toInteger(record.rental_days, null),
     category: toStringValue(record.category || "economy"),
     sortOrder: toNumber(record.sort_order) || 0,
@@ -487,13 +549,96 @@
     updatedAt: record.updated_at || "",
   });
 
+  const normalizeCarReservationRecord = (record) => ({
+    id: record.id,
+    carId: toStringValue(record.car_id),
+    status: normalizeCarReservationStatus(record.status),
+    customerName: toStringValue(record.customer_name),
+    customerPhone: toStringValue(record.customer_phone),
+    startDateTime: toStringValue(record.start_at),
+    rentalDays: toInteger(record.rental_days, 1) || 1,
+    endDateTime: toStringValue(record.end_at),
+    note: toStringValue(record.note),
+    createdAt: record.created_at || "",
+    updatedAt: record.updated_at || "",
+  });
+
+  const getEffectiveCarReservationStatus = (reservation, now = Date.now()) => {
+    const endTimestamp = toTimestamp(reservation && reservation.endDateTime);
+    if (endTimestamp !== null && endTimestamp <= now) {
+      return "expired";
+    }
+    return normalizeCarReservationStatus(reservation && reservation.status, "reserved");
+  };
+
+  const buildCarReservationSummary = (car, reservations = [], now = Date.now()) => {
+    const relevant = toArray(reservations)
+      .filter((item) => item && (item.carId === (car && car.id) || item.carId === toStringValue(car && car.id)))
+      .map((item) => {
+        const startTimestamp = toTimestamp(item.startDateTime);
+        const endTimestamp = toTimestamp(item.endDateTime);
+        return {
+          ...item,
+          startTimestamp,
+          endTimestamp,
+          effectiveStatus: getEffectiveCarReservationStatus(item, now),
+        };
+      })
+      .sort((left, right) => {
+        const leftTime = left.startTimestamp === null ? Number.MAX_SAFE_INTEGER : left.startTimestamp;
+        const rightTime = right.startTimestamp === null ? Number.MAX_SAFE_INTEGER : right.startTimestamp;
+        return leftTime - rightTime;
+      });
+
+    const activeReservation = relevant.find((item) => (
+      item.startTimestamp !== null
+      && item.endTimestamp !== null
+      && item.startTimestamp <= now
+      && item.endTimestamp > now
+      && ["reserved", "rented"].includes(item.effectiveStatus)
+    )) || null;
+
+    const upcomingReservation = relevant.find((item) => (
+      item.startTimestamp !== null
+      && item.startTimestamp > now
+      && ["reserved", "rented"].includes(item.effectiveStatus)
+    )) || null;
+
+    const latestExpiredReservation = [...relevant]
+      .filter((item) => item.endTimestamp !== null && item.endTimestamp <= now)
+      .sort((left, right) => (right.endTimestamp || 0) - (left.endTimestamp || 0))[0] || null;
+
+    let currentStatus = normalizeAvailabilityStatus(car && car.availabilityStatus, "available");
+    if (activeReservation) {
+      currentStatus = activeReservation.effectiveStatus;
+    } else if (upcomingReservation) {
+      if (!["reserved", "rented"].includes(currentStatus)) {
+        currentStatus = "available";
+      }
+    } else if (latestExpiredReservation) {
+      currentStatus = "expired";
+    }
+
+    if (String(car && car.status || "").trim().toLowerCase() === "archived") {
+      currentStatus = "expired";
+    }
+
+    return {
+      currentStatus,
+      activeReservation,
+      upcomingReservation,
+      latestExpiredReservation,
+      remainingMs: activeReservation && activeReservation.endTimestamp !== null
+        ? activeReservation.endTimestamp - now
+        : null,
+      relevantReservations: relevant,
+    };
+  };
+
   const serializeCarPayload = (input) => {
     const title = toStringValue(input.title || `${input.brand || ""} ${input.model || ""}`);
     const stockCount = toInteger(input.stockCount, 1);
-    const availabilityStatus = normalizeAvailabilityStatus(
-      input.availabilityStatus,
-      stockCount === 0 ? "unavailable" : "available"
-    );
+    const availabilityStatus = normalizeAvailabilityStatus(input.availabilityStatus, "available");
     const rentalDays = availabilityStatus === "rented" ? toInteger(input.rentalDays, null) : null;
     return {
       slug: toStringValue(input.slug) || slugify(title),
@@ -516,7 +661,7 @@
       featured: Boolean(input.featured),
       status: toStringValue(input.status) || "draft",
       stock_count: stockCount,
-      availability_status: stockCount === 0 && availabilityStatus === "available" ? "unavailable" : availabilityStatus,
+      availability_status: availabilityStatus,
       rental_days: rentalDays,
       category: toStringValue(input.category) || "economy",
       sort_order: toNumber(input.sortOrder) || 0,
@@ -536,6 +681,48 @@
     source: toStringValue(input.source) || "website",
     status: normalizeReservationStatus(input.status, "new"),
   });
+
+  const serializeCarReservationPayload = (input) => {
+    const status = normalizeCarReservationStatus(input.status, "reserved");
+    const startDateTime = toStringValue(input.startDateTime || input.startAt);
+    const endDateTime = toStringValue(input.endDateTime || input.endAt);
+    const rentalDays = toInteger(input.rentalDays, 1) || 1;
+
+    if (!toStringValue(input.carId)) {
+      throw new Error("Araç seçilmelidir.");
+    }
+    if (!toStringValue(input.customerName) || !toStringValue(input.customerPhone)) {
+      throw new Error("Müşteri adı ve telefonu zorunludur.");
+    }
+    if (!startDateTime || !endDateTime) {
+      throw new Error("Başlangıç ve bitiş tarihi zorunludur.");
+    }
+    const startTimestamp = toTimestamp(startDateTime);
+    const endTimestamp = toTimestamp(endDateTime);
+    if (startTimestamp === null || endTimestamp === null || endTimestamp <= startTimestamp) {
+      throw new Error("Bitiş tarihi başlangıçtan sonra olmalıdır.");
+    }
+
+    return {
+      car_id: toStringValue(input.carId),
+      status,
+      customer_name: toStringValue(input.customerName),
+      customer_phone: toStringValue(input.customerPhone),
+      start_at: startDateTime,
+      rental_days: rentalDays,
+      end_at: endDateTime,
+      note: toStringValue(input.note) || null,
+    };
+  };
+
+  const rangesOverlap = (leftStart, leftEnd, rightStart, rightEnd) => (
+    leftStart !== null
+    && leftEnd !== null
+    && rightStart !== null
+    && rightEnd !== null
+    && leftStart < rightEnd
+    && rightStart < leftEnd
+  );
 
   const isLegacyCarsSchemaError = (error) => {
     const message = [
@@ -618,7 +805,7 @@
       if (rawStatus !== "published") {
         return {
           ...car,
-          availabilityStatus: "unavailable",
+          availabilityStatus: "expired",
           rentalDays: null,
         };
       }
@@ -1099,6 +1286,25 @@
     }
   };
 
+  const requestCarReservationsRest = async ({ publicView = false, allowMissing = false, ...options } = {}) => {
+    const table = publicView ? "public_car_reservations" : "car_reservations";
+
+    try {
+      const rows = await requestRest(table, options);
+      carReservationsSchemaMode = "full";
+      return rows;
+    } catch (error) {
+      if (!isMissingCarReservationsSchemaError(error)) {
+        throw error;
+      }
+      carReservationsSchemaMode = "missing";
+      if (allowMissing) {
+        return [];
+      }
+      throw new Error("Rezervasyon planlama tablosu henüz kurulmamış. `supabase/schema.sql` dosyasını çalıştırın.");
+    }
+  };
+
   const listPublishedCars = async ({ force = false, featuredOnly = false, limit = null } = {}) => {
     if (publishedCarsCache && !force && !featuredOnly && limit === null) {
       return publishedCarsCache.slice();
@@ -1288,6 +1494,147 @@
         await saveCarStatusOverrides(nextOverrides);
       }
     }
+  };
+
+  const listPublicCarReservations = async ({ force = false } = {}) => {
+    if (publicCarReservationsCache && !force) {
+      return publicCarReservationsCache.slice();
+    }
+
+    const rows = await requestCarReservationsRest({
+      publicView: true,
+      allowMissing: true,
+      select: PUBLIC_CAR_RESERVATION_COLUMNS,
+      order: "start_at.asc",
+    });
+
+    const items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord) : [];
+    publicCarReservationsCache = items.slice();
+    return items;
+  };
+
+  const markExpiredCarReservations = async (items = null) => {
+    const source = Array.isArray(items) ? items : await listAdminCarReservations({ syncExpired: false });
+    const staleItems = source.filter((item) => (
+      normalizeCarReservationStatus(item.status, "reserved") !== "expired"
+      && toTimestamp(item.endDateTime) !== null
+      && toTimestamp(item.endDateTime) <= Date.now()
+    ));
+
+    if (!staleItems.length) {
+      return 0;
+    }
+
+    await Promise.all(staleItems.map((item) => requestCarReservationsRest({
+      admin: true,
+      method: "PATCH",
+      filters: { id: `eq.${toStringValue(item.id)}` },
+      body: { status: "expired" },
+      prefer: "return=minimal",
+    }).catch(() => null)));
+
+    publicCarReservationsCache = null;
+    return staleItems.length;
+  };
+
+  const listAdminCarReservations = async ({ carId = "", syncExpired = true } = {}) => {
+    const rows = await requestCarReservationsRest({
+      admin: true,
+      allowMissing: true,
+      select: CAR_RESERVATION_COLUMNS,
+      order: "start_at.desc",
+      filters: carId ? { car_id: `eq.${toStringValue(carId)}` } : {},
+    });
+
+    let items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord) : [];
+    if (syncExpired) {
+      const changed = await markExpiredCarReservations(items);
+      if (changed > 0) {
+        const refreshedRows = await requestCarReservationsRest({
+          admin: true,
+          allowMissing: true,
+          select: CAR_RESERVATION_COLUMNS,
+          order: "start_at.desc",
+          filters: carId ? { car_id: `eq.${toStringValue(carId)}` } : {},
+        });
+        items = Array.isArray(refreshedRows) ? refreshedRows.map(normalizeCarReservationRecord) : [];
+      }
+    }
+    return items;
+  };
+
+  const assertCarReservationAvailability = async (payload, excludeId = "") => {
+    if (!payload || !payload.car_id) {
+      throw new Error("Araç seçilmelidir.");
+    }
+
+    if (normalizeCarReservationStatus(payload.status, "reserved") === "expired") {
+      return;
+    }
+
+    const startTimestamp = toTimestamp(payload.start_at);
+    const endTimestamp = toTimestamp(payload.end_at);
+    if (startTimestamp === null || endTimestamp === null) {
+      throw new Error("Başlangıç ve bitiş tarihi zorunludur.");
+    }
+
+    const existingItems = await listAdminCarReservations({
+      carId: payload.car_id,
+      syncExpired: false,
+    });
+
+    const conflict = existingItems.find((item) => {
+      if (excludeId && item.id === excludeId) return false;
+      if (getEffectiveCarReservationStatus(item) === "expired") return false;
+      return rangesOverlap(startTimestamp, endTimestamp, toTimestamp(item.startDateTime), toTimestamp(item.endDateTime));
+    });
+
+    if (conflict) {
+      throw new Error("Bu araç seçilen tarih aralığında müsait değil.");
+    }
+  };
+
+  const createCarReservation = async (input) => {
+    const payload = serializeCarReservationPayload(input);
+    await assertCarReservationAvailability(payload);
+
+    const rows = await requestCarReservationsRest({
+      admin: true,
+      method: "POST",
+      body: payload,
+      select: CAR_RESERVATION_COLUMNS,
+      prefer: "return=representation",
+    });
+
+    publicCarReservationsCache = null;
+    return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
+  };
+
+  const updateCarReservation = async (id, input) => {
+    const payload = serializeCarReservationPayload(input);
+    await assertCarReservationAvailability(payload, toStringValue(id));
+
+    const rows = await requestCarReservationsRest({
+      admin: true,
+      method: "PATCH",
+      filters: { id: `eq.${toStringValue(id)}` },
+      body: payload,
+      select: CAR_RESERVATION_COLUMNS,
+      prefer: "return=representation",
+    });
+
+    publicCarReservationsCache = null;
+    return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
+  };
+
+  const deleteCarReservation = async (id) => {
+    await requestCarReservationsRest({
+      admin: true,
+      method: "DELETE",
+      filters: { id: `eq.${toStringValue(id)}` },
+      prefer: "return=minimal",
+    });
+    publicCarReservationsCache = null;
   };
 
   const createReservationLead = async (input) => {
@@ -1538,13 +1885,20 @@
     ensureAdminSession,
     getCarsSchemaMode: () => carsSchemaMode,
     getSiteContentSchemaMode: () => siteContentSchemaMode,
+    getCarReservationsSchemaMode: () => carReservationsSchemaMode,
     listPublishedCars,
+    listPublicCarReservations,
     getPublishedCarBySlug,
     listAdminCars,
     createCar,
     updateCar,
     patchCar,
     deleteCar,
+    listAdminCarReservations,
+    createCarReservation,
+    updateCarReservation,
+    deleteCarReservation,
+    markExpiredCarReservations,
     createReservationLead,
     listAdminReservations,
     updateReservationLead,
@@ -1564,8 +1918,14 @@
     deleteMedia,
     normalizeCarRecord,
     normalizeReservationRecord,
+    normalizeCarReservationRecord,
     serializeCarPayload,
     serializeReservationPayload,
+    serializeCarReservationPayload,
+    normalizeAvailabilityStatus,
+    normalizeCarReservationStatus,
+    getEffectiveCarReservationStatus,
+    buildCarReservationSummary,
     extractStoragePathFromUrl: async (url) => extractStoragePathFromUrlInternal(await getConfig(), url),
     buildPublicAssetUrl: async (path) => {
       const config = await getConfig();

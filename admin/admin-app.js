@@ -23,25 +23,34 @@
     archived: "Arxiv",
   };
   const CAR_UI_STATUS_LABELS = {
-    active: "Aktivdir",
-    rented: "İcarədədir",
-    archived: "Arxiv",
+    active: "Müsait",
+    reserved: "Rezerve",
+    rented: "Kirada",
+    expired: "Süresi doldu",
+    archived: "Arşiv",
   };
   const AVAILABILITY_LABELS = {
-    available: "Aktivdir",
-    rented: "İcarədədir",
-    unavailable: "Arxiv",
+    available: "Müsait",
+    reserved: "Rezerve",
+    rented: "Kirada",
+    expired: "Süresi doldu",
   };
   const AVAILABILITY_BADGE_CLASSES = {
     available: "admin-badge admin-badge--available",
+    reserved: "admin-badge admin-badge--reserved",
     rented: "admin-badge admin-badge--rented",
-    unavailable: "admin-badge admin-badge--unavailable",
+    expired: "admin-badge admin-badge--expired",
   };
   const RESERVATION_STATUS_LABELS = {
     new: "Yeni",
     reviewed: "Baxıldı",
     spam: "Saxta",
     archived: "Arxiv",
+  };
+  const CAR_RESERVATION_STATUS_LABELS = {
+    reserved: "Rezerve",
+    rented: "Kirada",
+    expired: "Süresi doldu",
   };
 
   const qs = (selector, scope = document) => scope.querySelector(selector);
@@ -58,6 +67,7 @@
     route: Auth.sanitizeRoute(window.location.hash.slice(1)),
     theme: localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light",
     cars: [],
+    carReservations: [],
     reservations: [],
     media: [],
     config: null,
@@ -68,15 +78,20 @@
       search: "",
       category: "all",
       status: "all",
+      scheduleSearch: "",
+      scheduleStatus: "all",
+      scheduleCar: "all",
       reservationSearch: "",
       reservationStatus: "all",
       mediaSearch: "",
     },
     draft: null,
+    scheduleEndEdited: false,
   };
 
   const refs = {};
   let publicSyncChannel = null;
+  let liveRefreshTimer = null;
 
   const notifyPublicSiteChange = (type = "content") => {
     const payload = {
@@ -114,6 +129,19 @@
     return new Intl.DateTimeFormat("az-AZ", { day: "2-digit", month: "short", year: "numeric" }).format(date);
   };
 
+  const formatDateTime = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("tr-TR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
   const excerpt = (value, limit = 110) => {
     const text = String(value || "").trim();
     if (text.length <= limit) return text;
@@ -128,23 +156,44 @@
 
   const resolveAvailabilityStatus = (value) => {
     const clean = String(value || "").trim().toLowerCase();
-    if (["available", "rented", "unavailable"].includes(clean)) return clean;
+    if (clean === "unavailable") return "expired";
+    if (["available", "reserved", "rented", "expired"].includes(clean)) return clean;
     return "available";
   };
 
-  const getAvailabilityLabel = (value) => AVAILABILITY_LABELS[resolveAvailabilityStatus(value)] || "Aktivdir";
+  const getAvailabilityLabel = (value) => AVAILABILITY_LABELS[resolveAvailabilityStatus(value)] || "Müsait";
 
   const getRentedDaysLabel = (value) => {
     const days = Number(value);
-    if (!Number.isFinite(days) || days <= 0) return "İcarədədir";
-    return `${Math.trunc(days)} gün icarədə`;
+    if (!Number.isFinite(days) || days <= 0) return "Kirada";
+    return `${Math.trunc(days)} gün kirada`;
   };
 
+  const formatRemainingTime = (milliseconds) => {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) return "Süresi doldu";
+    const totalMinutes = Math.max(1, Math.floor(milliseconds / 60000));
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    if (days > 0) return `${days} gün ${hours} saat kaldı`;
+    if (hours > 0) return `${hours} saat ${minutes} dakika kaldı`;
+    return `${minutes} dakika kaldı`;
+  };
+
+  const buildUpcomingReservationText = (summary) => (
+    summary && summary.upcomingReservation
+      ? `Yaklaşan rezervasyon: ${formatDateTime(summary.upcomingReservation.startDateTime)}`
+      : ""
+  );
+
+  const getCarScheduleSummary = (car) => Data.buildCarReservationSummary(car, state.carReservations, Date.now());
+
   const getAvailabilityText = (car) => {
-    const state = resolveAvailabilityStatus(car && car.availabilityStatus);
-    if (state === "rented") return getRentedDaysLabel(car && car.rentalDays);
-    if (state === "unavailable") return CAR_UI_STATUS_LABELS.archived;
-    return "Aktivdir";
+    const summary = getCarScheduleSummary(car);
+    if (summary.currentStatus === "rented" && summary.remainingMs > 0) {
+      return formatRemainingTime(summary.remainingMs);
+    }
+    return getAvailabilityLabel(summary.currentStatus);
   };
 
   const getAvailabilityBadgeClass = (value) => (
@@ -155,7 +204,11 @@
   const getCarUiStatus = (car) => {
     const rawStatus = String(car && car.status || "").toLowerCase();
     if (!car || rawStatus === "archived" || rawStatus !== "published") return "archived";
-    return resolveAvailabilityStatus(car.availabilityStatus) === "rented" ? "rented" : "active";
+    const currentStatus = getCarScheduleSummary(car).currentStatus;
+    if (currentStatus === "reserved") return "reserved";
+    if (currentStatus === "rented") return "rented";
+    if (currentStatus === "expired") return "expired";
+    return "active";
   };
 
   const getReservationStatusClass = (status) => {
@@ -231,6 +284,11 @@
     refs.carsStatus = qs("[data-cars-status]");
     refs.carsList = qs("[data-cars-list]");
     refs.carsEmpty = qs("[data-cars-empty]");
+    refs.scheduleSearch = qs("[data-schedule-search]");
+    refs.scheduleStatus = qs("[data-schedule-status]");
+    refs.scheduleCar = qs("[data-schedule-car]");
+    refs.scheduleList = qs("[data-schedule-list]");
+    refs.scheduleEmpty = qs("[data-schedule-empty]");
     refs.reservationsSearch = qs("[data-reservations-search]");
     refs.reservationsStatus = qs("[data-reservations-status]");
     refs.reservationsList = qs("[data-reservations-list]");
@@ -250,6 +308,17 @@
     refs.carDialogTitle = qs("[data-car-dialog-title]");
     refs.carDialogMode = qs("[data-car-dialog-mode]");
     refs.carFeedback = qs("[data-car-feedback]");
+    refs.scheduleDialog = qs("[data-dialog='schedule']");
+    refs.scheduleForm = qs("[data-schedule-form]");
+    refs.scheduleDialogTitle = qs("[data-schedule-dialog-title]");
+    refs.scheduleDialogMode = qs("[data-schedule-dialog-mode]");
+    refs.scheduleFeedback = qs("[data-schedule-feedback]");
+    refs.schedulePreview = qs("[data-schedule-preview]");
+    refs.scheduleCarSelect = qs("[data-schedule-car-select]");
+    refs.scheduleRecalculate = qs("[data-schedule-recalculate]");
+    refs.scheduleStartInput = refs.scheduleForm ? refs.scheduleForm.elements.namedItem("startDateTime") : null;
+    refs.scheduleRentalDaysInput = refs.scheduleForm ? refs.scheduleForm.elements.namedItem("rentalDays") : null;
+    refs.scheduleEndInput = refs.scheduleForm ? refs.scheduleForm.elements.namedItem("endDateTime") : null;
     refs.rentalDaysField = qs("[data-rental-days-field]");
     refs.rentalDaysInput = refs.carForm ? refs.carForm.elements.namedItem("rentalDays") : null;
     refs.coverInput = qs("[data-cover-input]");
@@ -285,6 +354,39 @@
     if (tone) refs.carFeedback.classList.add(tone);
   };
 
+  const setScheduleFeedback = (message = "", tone = "") => {
+    if (!refs.scheduleFeedback) return;
+    refs.scheduleFeedback.textContent = message;
+    refs.scheduleFeedback.classList.remove("is-success", "is-error");
+    if (tone) refs.scheduleFeedback.classList.add(tone);
+  };
+
+  const isoToLocalDateTimeInput = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 16);
+  };
+
+  const localDateTimeInputToIso = (value) => {
+    const clean = String(value || "").trim();
+    if (!clean) return "";
+    const date = new Date(clean);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString();
+  };
+
+  const calculateScheduleEndValue = (startValue, rentalDaysValue) => {
+    const cleanStart = String(startValue || "").trim();
+    const cleanDays = Number(String(rentalDaysValue || "").trim());
+    if (!cleanStart || !Number.isFinite(cleanDays) || cleanDays <= 0) return "";
+    const date = new Date(cleanStart);
+    if (Number.isNaN(date.getTime())) return "";
+    date.setDate(date.getDate() + Math.trunc(cleanDays));
+    return isoToLocalDateTimeInput(date.toISOString());
+  };
+
   const syncRentalDaysField = () => {
     if (!refs.carForm || !refs.rentalDaysField || !refs.rentalDaysInput) return;
     const statusField = refs.carForm.elements.namedItem("displayStatus");
@@ -307,13 +409,14 @@
     if (!refs.dashboardMetrics || !refs.dashboardRecent) return;
 
     const activeCars = state.cars.filter((car) => getCarUiStatus(car) === "active").length;
+    const reservedCars = state.cars.filter((car) => getCarUiStatus(car) === "reserved").length;
     const rentedCars = state.cars.filter((car) => getCarUiStatus(car) === "rented").length;
     const newReservations = state.reservations.filter((item) => item.status === "new").length;
 
     refs.dashboardMetrics.innerHTML = [
       ["Bütün modellər", state.cars.length, "Supabase cars cədvəlindən gəlir"],
-      ["Aktiv maşın", activeCars, "Public saytda rezervasiya üçün açıqdır"],
-      ["İcarədə", rentedCars, "Saytda görünür, amma rezervasiya bağlanır"],
+      ["Müsait araç", activeCars, "Şu an yeni talep alabilir"],
+      ["Rezerve / Kirada", reservedCars + rentedCars, "Takvimde bağlı görünen araçlar"],
       ["Yeni rezerv", newReservations, "Müştəridən yeni gələn müraciətlər"],
     ].map(([label, value, note]) => `
       <article class="admin-metric">
@@ -363,14 +466,15 @@
     refs.carsEmpty.hidden = items.length > 0;
 
     refs.carsList.innerHTML = items.map((car) => {
-      const availabilityState = resolveAvailabilityStatus(car.availabilityStatus);
+      const summary = getCarScheduleSummary(car);
+      const availabilityState = resolveAvailabilityStatus(summary.currentStatus);
       const uiStatus = getCarUiStatus(car);
-      const availabilityLabel = uiStatus === "archived"
-        ? CAR_UI_STATUS_LABELS.archived
-        : getAvailabilityText(car);
+      const availabilityLabel = uiStatus === "archived" ? CAR_UI_STATUS_LABELS.archived : getAvailabilityText(car);
       const availabilityBadgeClass = uiStatus === "archived"
         ? getStatusClass("archived")
-        : getAvailabilityBadgeClass(car.availabilityStatus);
+        : getAvailabilityBadgeClass(summary.currentStatus);
+      const upcomingText = summary.currentStatus === "available" ? buildUpcomingReservationText(summary) : "";
+      const managedReservation = summary.activeReservation || summary.upcomingReservation || summary.latestExpiredReservation;
       return `
       <article class="admin-entity-card">
         <div class="admin-entity-card__identity">
@@ -379,7 +483,7 @@
           </div>
           <div class="admin-entity-card__copy">
             <h3 class="admin-entity-card__title">${escapeHtml(car.title)}</h3>
-            <p>${escapeHtml(excerpt(car.summary || car.description || "", 120) || "Qısa təsvir əlavə edin.")}</p>
+            <p>${escapeHtml(upcomingText || excerpt(car.summary || car.description || "", 120) || "Qısa təsvir əlavə edin.")}</p>
             <div class="admin-chip-row">
               <span class="admin-chip">${escapeHtml(getCategoryLabel(car.category))}</span>
               <span class="admin-chip">${escapeHtml(formatCityLabel(car.city))}</span>
@@ -393,8 +497,8 @@
           <div class="admin-stat-item"><strong>Oturacaq</strong><span>${escapeHtml(`${car.seats || "-"} nəfər`)}</span></div>
           <div class="admin-stat-item"><strong>Yenilənib</strong><span>${escapeHtml(formatDate(car.updatedAt || car.createdAt))}</span></div>
           <label class="admin-status-control">
-            <span>Vəziyyət</span>
-            <select class="admin-inline-select admin-inline-select--block" data-car-ui-status-select data-id="${escapeHtml(car.id)}">
+            <span>Canlı durum</span>
+            <select class="admin-inline-select admin-inline-select--block" data-car-ui-status-select data-id="${escapeHtml(car.id)}"${managedReservation ? ' disabled title="Bu araç zamanlı plan ile yönetiliyor."' : ""}>
               ${Object.entries(CAR_UI_STATUS_LABELS).map(([value, label]) => `<option value="${value}"${uiStatus === value ? " selected" : ""}>${label}</option>`).join("")}
             </select>
           </label>
@@ -404,12 +508,95 @@
             <span class="${availabilityBadgeClass}">${escapeHtml(availabilityLabel)}</span>
           </div>
           <div class="admin-action-row">
+            <button class="admin-mini-button" type="button" data-manage-schedule data-car-id="${escapeHtml(car.id)}"${managedReservation ? ` data-schedule-id="${escapeHtml(managedReservation.id)}"` : ""}>Rezervasyon / kiralama</button>
             <button class="admin-mini-button" type="button" data-edit-car data-id="${escapeHtml(car.id)}">Redaktə et</button>
             <button class="admin-mini-button admin-mini-button--danger" type="button" data-delete-car data-id="${escapeHtml(car.id)}">Sil</button>
           </div>
         </div>
       </article>
     `;
+    }).join("");
+  };
+
+  const filteredCarReservations = () => state.carReservations.filter((reservation) => {
+    const car = state.cars.find((item) => item.id === reservation.carId);
+    const summary = car ? Data.buildCarReservationSummary(car, [reservation], Date.now()) : null;
+    const effectiveStatus = summary && summary.latestExpiredReservation ? "expired" : Data.getEffectiveCarReservationStatus(reservation, Date.now());
+    const haystack = [
+      car ? car.title : "",
+      reservation.customerName,
+      reservation.customerPhone,
+      reservation.note,
+    ].join(" ").toLowerCase();
+
+    const matchesSearch = !state.filters.scheduleSearch || haystack.includes(state.filters.scheduleSearch);
+    const matchesStatus = state.filters.scheduleStatus === "all" || effectiveStatus === state.filters.scheduleStatus;
+    const matchesCar = state.filters.scheduleCar === "all" || reservation.carId === state.filters.scheduleCar;
+    return matchesSearch && matchesStatus && matchesCar;
+  });
+
+  const renderScheduleCarOptions = () => {
+    const options = ['<option value="all">Tüm araçlar</option>']
+      .concat(state.cars.map((car) => `<option value="${escapeHtml(car.id)}">${escapeHtml(car.title)}</option>`));
+
+    if (refs.scheduleCar) {
+      refs.scheduleCar.innerHTML = options.join("");
+      refs.scheduleCar.value = state.filters.scheduleCar;
+    }
+
+    if (refs.scheduleCarSelect) {
+      const previousValue = refs.scheduleCarSelect.value;
+      refs.scheduleCarSelect.innerHTML = ['<option value="">Araç seç</option>']
+        .concat(state.cars
+          .filter((car) => String(car.status || "").toLowerCase() !== "archived")
+          .map((car) => `<option value="${escapeHtml(car.id)}">${escapeHtml(car.title)}</option>`))
+        .join("");
+      if (previousValue && state.cars.some((car) => car.id === previousValue)) {
+        refs.scheduleCarSelect.value = previousValue;
+      }
+    }
+  };
+
+  const renderCarReservations = () => {
+    if (!refs.scheduleList || !refs.scheduleEmpty) return;
+
+    const items = filteredCarReservations();
+    refs.scheduleEmpty.hidden = items.length > 0;
+
+    refs.scheduleList.innerHTML = items.map((reservation) => {
+      const car = state.cars.find((item) => item.id === reservation.carId);
+      const status = Data.getEffectiveCarReservationStatus(reservation, Date.now());
+      const remainingText = status === "rented"
+        ? formatRemainingTime(new Date(reservation.endDateTime).getTime() - Date.now())
+        : (status === "expired" ? "Süresi doldu" : "-");
+
+      return `
+        <article class="admin-entity-card admin-entity-card--compact">
+          <div class="admin-entity-card__copy">
+            <h3 class="admin-entity-card__title">${escapeHtml(car ? car.title : "Araç silinmiş")}</h3>
+            <p>${escapeHtml(reservation.customerName || "Müşteri adı yok")}</p>
+            <div class="admin-chip-row">
+              <span class="admin-chip">${escapeHtml(reservation.customerPhone || "-")}</span>
+              <span class="admin-chip">${escapeHtml(`${reservation.rentalDays || 1} gün`)}</span>
+            </div>
+          </div>
+          <div class="admin-stat-list admin-stat-list--compact">
+            <div class="admin-stat-item"><strong>Başlangıç</strong><span>${escapeHtml(formatDateTime(reservation.startDateTime))}</span></div>
+            <div class="admin-stat-item"><strong>Bitiş</strong><span>${escapeHtml(formatDateTime(reservation.endDateTime))}</span></div>
+            <div class="admin-stat-item"><strong>Kalan</strong><span>${escapeHtml(remainingText)}</span></div>
+            <div class="admin-stat-item"><strong>Not</strong><span>${escapeHtml(excerpt(reservation.note || "-", 42))}</span></div>
+          </div>
+          <div class="admin-entity-card__actions">
+            <div class="admin-entity-card__badges">
+              <span class="${getAvailabilityBadgeClass(status)}">${escapeHtml(CAR_RESERVATION_STATUS_LABELS[status] || AVAILABILITY_LABELS[status] || status)}</span>
+            </div>
+            <div class="admin-action-row">
+              <button class="admin-mini-button" type="button" data-edit-schedule data-id="${escapeHtml(reservation.id)}">Düzenle</button>
+              <button class="admin-mini-button admin-mini-button--danger" type="button" data-delete-schedule data-id="${escapeHtml(reservation.id)}">Sil</button>
+            </div>
+          </div>
+        </article>
+      `;
     }).join("");
   };
 
@@ -475,6 +662,155 @@
         </article>
       `;
     }).join("");
+  };
+
+  const renderSchedulePreview = () => {
+    if (!refs.schedulePreview || !refs.scheduleForm) return;
+    const carId = refs.scheduleForm.elements.namedItem("carId") ? refs.scheduleForm.elements.namedItem("carId").value : "";
+    const status = refs.scheduleForm.elements.namedItem("status") ? refs.scheduleForm.elements.namedItem("status").value : "reserved";
+    const startValue = refs.scheduleStartInput ? refs.scheduleStartInput.value : "";
+    const endValue = refs.scheduleEndInput ? refs.scheduleEndInput.value : "";
+    const car = state.cars.find((item) => item.id === carId);
+    const startIso = localDateTimeInputToIso(startValue);
+    const endIso = localDateTimeInputToIso(endValue);
+    const remainingText = status === "rented" && endIso
+      ? formatRemainingTime(new Date(endIso).getTime() - Date.now())
+      : "-";
+
+    refs.schedulePreview.innerHTML = `
+      <div class="admin-note-item">Araç: ${escapeHtml(car ? car.title : "Seçilmedi")}</div>
+      <div class="admin-note-item">Durum: ${escapeHtml(CAR_RESERVATION_STATUS_LABELS[status] || status)}</div>
+      <div class="admin-note-item">Başlangıç: ${escapeHtml(startIso ? formatDateTime(startIso) : "-")}</div>
+      <div class="admin-note-item">Bitiş: ${escapeHtml(endIso ? formatDateTime(endIso) : "-")}</div>
+      <div class="admin-note-item">Kalan süre: ${escapeHtml(remainingText)}</div>
+    `;
+  };
+
+  const syncScheduleEndInput = ({ force = false } = {}) => {
+    if (!refs.scheduleStartInput || !refs.scheduleRentalDaysInput || !refs.scheduleEndInput) return;
+    if (state.scheduleEndEdited && !force) return;
+    const nextValue = calculateScheduleEndValue(refs.scheduleStartInput.value, refs.scheduleRentalDaysInput.value);
+    if (nextValue) {
+      refs.scheduleEndInput.value = nextValue;
+    }
+    renderSchedulePreview();
+  };
+
+  const resetScheduleForm = (reservation = null, carId = "") => {
+    if (!refs.scheduleForm) return;
+    refs.scheduleForm.reset();
+    state.scheduleEndEdited = false;
+
+    const values = {
+      id: reservation ? reservation.id : "",
+      carId: reservation ? reservation.carId : carId,
+      status: reservation ? reservation.status : "reserved",
+      customerName: reservation ? reservation.customerName : "",
+      customerPhone: reservation ? reservation.customerPhone : "",
+      startDateTime: reservation ? isoToLocalDateTimeInput(reservation.startDateTime) : "",
+      rentalDays: reservation ? reservation.rentalDays : 1,
+      endDateTime: reservation ? isoToLocalDateTimeInput(reservation.endDateTime) : "",
+      note: reservation ? reservation.note : "",
+    };
+
+    Object.entries(values).forEach(([name, value]) => {
+      const field = refs.scheduleForm.elements.namedItem(name);
+      if (field) field.value = value;
+    });
+
+    setScheduleFeedback("");
+    if (!reservation) {
+      syncScheduleEndInput({ force: true });
+    }
+    renderSchedulePreview();
+  };
+
+  const findManagedScheduleForCar = (carId) => {
+    const now = Date.now();
+    const items = state.carReservations
+      .filter((item) => item.carId === carId)
+      .sort((left, right) => new Date(left.startDateTime).getTime() - new Date(right.startDateTime).getTime());
+
+    return items.find((item) => {
+      const start = new Date(item.startDateTime).getTime();
+      const end = new Date(item.endDateTime).getTime();
+      return Number.isFinite(start) && Number.isFinite(end) && start <= now && end > now;
+    }) || items.find((item) => new Date(item.startDateTime).getTime() > now) || items[0] || null;
+  };
+
+  const openScheduleModal = ({ reservationId = "", carId = "" } = {}) => {
+    const reservation = reservationId
+      ? state.carReservations.find((item) => item.id === reservationId)
+      : (carId ? findManagedScheduleForCar(carId) : null);
+    const targetCarId = reservation ? reservation.carId : carId;
+    resetScheduleForm(reservation, targetCarId);
+    if (refs.scheduleDialogTitle) {
+      refs.scheduleDialogTitle.textContent = reservation ? "Rezervasyon / kiralama kaydını düzenle" : "Yeni rezervasyon / kiralama oluştur";
+    }
+    if (refs.scheduleDialogMode) {
+      refs.scheduleDialogMode.textContent = reservation ? "Düzenle" : "Yeni kayıt";
+    }
+    if (refs.scheduleDialog) refs.scheduleDialog.hidden = false;
+    document.body.classList.add("is-modal-open");
+  };
+
+  const closeScheduleModal = () => {
+    if (refs.scheduleDialog) refs.scheduleDialog.hidden = true;
+    if (refs.scheduleForm) refs.scheduleForm.reset();
+    state.scheduleEndEdited = false;
+    setScheduleFeedback("");
+    document.body.classList.remove("is-modal-open");
+  };
+
+  const readScheduleFormValues = () => {
+    const formData = new FormData(refs.scheduleForm);
+    return {
+      id: String(formData.get("id") || "").trim(),
+      carId: String(formData.get("carId") || "").trim(),
+      status: String(formData.get("status") || "reserved").trim(),
+      customerName: String(formData.get("customerName") || "").trim(),
+      customerPhone: String(formData.get("customerPhone") || "").trim(),
+      startDateTime: localDateTimeInputToIso(String(formData.get("startDateTime") || "").trim()),
+      rentalDays: Math.max(1, Math.trunc(Number(String(formData.get("rentalDays") || "1").trim()) || 1)),
+      endDateTime: localDateTimeInputToIso(String(formData.get("endDateTime") || "").trim()),
+      note: String(formData.get("note") || "").trim(),
+    };
+  };
+
+  const saveSchedule = async (event) => {
+    event.preventDefault();
+    const values = readScheduleFormValues();
+    const submitButton = qs('button[type="submit"]', refs.scheduleForm);
+    const originalLabel = submitButton ? submitButton.textContent : "";
+
+    if (!values.carId || !values.customerName || !values.customerPhone || !values.startDateTime || !values.endDateTime) {
+      setScheduleFeedback("Araç, müşteri ve tarih alanları zorunludur.", "is-error");
+      return;
+    }
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "Kaydediliyor...";
+      }
+
+      if (values.id) {
+        await Data.updateCarReservation(values.id, values);
+      } else {
+        await Data.createCarReservation(values);
+      }
+
+      await loadData();
+      notifyPublicSiteChange("reservations");
+      closeScheduleModal();
+    } catch (error) {
+      setScheduleFeedback(error.message || "Rezervasyon kaydı kaydedilemedi.", "is-error");
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel || "Kaydı kaydet";
+      }
+    }
   };
 
   const renderMediaPicker = () => {
@@ -614,8 +950,9 @@
       })(),
       availabilityStatus: (() => {
         const displayStatus = String(formData.get("displayStatus") || "active").trim();
+        if (displayStatus === "reserved") return "reserved";
         if (displayStatus === "rented") return "rented";
-        if (displayStatus === "archived") return "unavailable";
+        if (displayStatus === "expired" || displayStatus === "archived") return "expired";
         return "available";
       })(),
       status: (() => {
@@ -960,14 +1297,17 @@
   const renderAll = () => {
     renderDashboard();
     renderCars();
+    renderScheduleCarOptions();
+    renderCarReservations();
     renderReservations();
     renderMedia();
     renderSettings();
   };
 
   const loadData = async () => {
-    const [cars, reservations, media, config, homeHero, homeSpotlight, homeCta] = await Promise.all([
+    const [cars, carReservations, reservations, media, config, homeHero, homeSpotlight, homeCta] = await Promise.all([
       Data.listAdminCars(),
+      Data.listAdminCarReservations().catch(() => []),
       Data.listAdminReservations().catch(() => []),
       Data.listMedia().catch(() => []),
       Data.getConfig(),
@@ -977,6 +1317,7 @@
     ]);
 
     state.cars = cars;
+    state.carReservations = carReservations;
     state.reservations = reservations;
     state.media = media;
     state.config = config;
@@ -987,6 +1328,7 @@
 
     const carsLegacy = Data.getCarsSchemaMode && Data.getCarsSchemaMode() === "legacy";
     const siteContentFallback = Data.getSiteContentSchemaMode && Data.getSiteContentSchemaMode() === "fallback";
+    const carReservationsMissing = Data.getCarReservationsSchemaMode && Data.getCarReservationsSchemaMode() === "missing";
 
     if (carsLegacy && siteContentFallback) {
       setAppFeedback("Admin panel açıldı, amma Supabase-də `cars` yeni kolonları və `site_content` cədvəli yoxdur. Publish etməzdən əvvəl `supabase/schema.sql` işlədin.", "is-error");
@@ -1000,6 +1342,11 @@
 
     if (siteContentFallback) {
       setAppFeedback("Admin panel işləyir, amma `site_content` cədvəli Supabase-də yoxdur. Homepage content hazırda fallback ilə saxlanır. Publish etməzdən əvvəl `supabase/schema.sql` işlədin.", "is-error");
+      return;
+    }
+
+    if (carReservationsMissing) {
+      setAppFeedback("Rezervasyon planlama tablosu Supabase-də yoxdur. Saatlik kiralama sistemi üçün `supabase/schema.sql` işlədin.", "is-error");
       return;
     }
 
@@ -1046,6 +1393,27 @@
       refs.carsStatus.addEventListener("change", (event) => {
         state.filters.status = event.target.value;
         renderCars();
+      });
+    }
+
+    if (refs.scheduleSearch) {
+      refs.scheduleSearch.addEventListener("input", (event) => {
+        state.filters.scheduleSearch = event.target.value.trim().toLowerCase();
+        renderCarReservations();
+      });
+    }
+
+    if (refs.scheduleStatus) {
+      refs.scheduleStatus.addEventListener("change", (event) => {
+        state.filters.scheduleStatus = event.target.value;
+        renderCarReservations();
+      });
+    }
+
+    if (refs.scheduleCar) {
+      refs.scheduleCar.addEventListener("change", (event) => {
+        state.filters.scheduleCar = event.target.value;
+        renderCarReservations();
       });
     }
 
@@ -1102,8 +1470,16 @@
       button.addEventListener("click", () => openCarModal());
     });
 
+    qsa("[data-open-schedule-modal]").forEach((button) => {
+      button.addEventListener("click", () => openScheduleModal());
+    });
+
     qsa("[data-close-dialog]").forEach((button) => {
       button.addEventListener("click", () => closeCarModal());
+    });
+
+    qsa("[data-close-schedule-dialog]").forEach((button) => {
+      button.addEventListener("click", () => closeScheduleModal());
     });
 
     if (refs.coverInput) {
@@ -1148,6 +1524,48 @@
       });
     }
 
+    if (refs.scheduleForm) {
+      refs.scheduleForm.addEventListener("submit", saveSchedule);
+    }
+
+    if (refs.scheduleStartInput) {
+      refs.scheduleStartInput.addEventListener("input", () => {
+        syncScheduleEndInput();
+      });
+    }
+
+    if (refs.scheduleRentalDaysInput) {
+      refs.scheduleRentalDaysInput.addEventListener("input", () => {
+        syncScheduleEndInput();
+      });
+    }
+
+    if (refs.scheduleEndInput) {
+      refs.scheduleEndInput.addEventListener("input", () => {
+        state.scheduleEndEdited = true;
+        renderSchedulePreview();
+      });
+    }
+
+    if (refs.scheduleCarSelect) {
+      refs.scheduleCarSelect.addEventListener("change", renderSchedulePreview);
+    }
+
+    if (refs.scheduleForm) {
+      refs.scheduleForm.addEventListener("change", (event) => {
+        if (event.target && event.target.name === "status") {
+          renderSchedulePreview();
+        }
+      });
+    }
+
+    if (refs.scheduleRecalculate) {
+      refs.scheduleRecalculate.addEventListener("click", () => {
+        state.scheduleEndEdited = false;
+        syncScheduleEndInput({ force: true });
+      });
+    }
+
     document.addEventListener("change", async (event) => {
       const uiStatusSelect = event.target.closest("[data-car-ui-status-select]");
       if (uiStatusSelect) {
@@ -1158,23 +1576,15 @@
         try {
           const uiStatus = uiStatusSelect.value;
           const rentalDays = uiStatus === "rented"
-            ? (() => {
-                const response = window.prompt("Neçə gün icarədədir?", car.rentalDays ? String(car.rentalDays) : "1");
-                if (response === null) return null;
-                const numeric = Number(String(response).trim());
-                if (!Number.isFinite(numeric) || numeric <= 0) {
-                  throw new Error("İcarə gün sayı 1 və ya daha böyük olmalıdır.");
-                }
-                return Math.trunc(numeric);
-              })()
+            ? Math.max(1, Math.trunc(Number(car.rentalDays || 1)))
             : null;
-          if (uiStatus === "rented" && rentalDays === null) {
-            uiStatusSelect.value = getCarUiStatus(car);
-            return;
-          }
           await Data.updateCar(car.id, {
             ...car,
-            availabilityStatus: uiStatus === "rented" ? "rented" : (uiStatus === "archived" ? "unavailable" : "available"),
+            availabilityStatus: uiStatus === "reserved"
+              ? "reserved"
+              : (uiStatus === "rented"
+                ? "rented"
+                : (uiStatus === "expired" || uiStatus === "archived" ? "expired" : "available")),
             status: uiStatus === "archived" ? "archived" : "published",
             rentalDays,
             coverImageUrl: car.coverImageUrl,
@@ -1210,6 +1620,36 @@
     });
 
     document.addEventListener("click", async (event) => {
+      const manageScheduleButton = event.target.closest("[data-manage-schedule]");
+      if (manageScheduleButton) {
+        openScheduleModal({
+          reservationId: manageScheduleButton.dataset.scheduleId || "",
+          carId: manageScheduleButton.dataset.carId || "",
+        });
+        return;
+      }
+
+      const editScheduleButton = event.target.closest("[data-edit-schedule]");
+      if (editScheduleButton) {
+        openScheduleModal({ reservationId: editScheduleButton.dataset.id || "" });
+        return;
+      }
+
+      const deleteScheduleButton = event.target.closest("[data-delete-schedule]");
+      if (deleteScheduleButton) {
+        const reservation = state.carReservations.find((item) => item.id === deleteScheduleButton.dataset.id);
+        if (!reservation) return;
+        if (!window.confirm("Bu rezervasyon / kiralama kaydı silinsin mi?")) return;
+        try {
+          await Data.deleteCarReservation(reservation.id);
+          await loadData();
+          notifyPublicSiteChange("reservations");
+        } catch (error) {
+          alert(error.message || "Kayıt silinemedi.");
+        }
+        return;
+      }
+
       const editButton = event.target.closest("[data-edit-car]");
       if (editButton) {
         openCarModal(editButton.dataset.id);
@@ -1332,6 +1772,7 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
         closeCarModal();
+        closeScheduleModal();
       }
     });
   };
@@ -1357,6 +1798,24 @@
 
     try {
       await loadData();
+      if (!liveRefreshTimer) {
+        liveRefreshTimer = window.setInterval(async () => {
+          try {
+            const changed = await Data.markExpiredCarReservations(state.carReservations);
+            if (changed > 0) {
+              await loadData();
+              notifyPublicSiteChange("reservations");
+              return;
+            }
+          } catch {
+            // ignore timer refresh issues
+          }
+          renderDashboard();
+          renderCars();
+          renderCarReservations();
+          renderSchedulePreview();
+        }, 60000);
+      }
     } catch (error) {
       setAppFeedback(error.message || "Admin məlumatları yüklənmədi.", "is-error");
     }

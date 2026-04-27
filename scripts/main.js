@@ -123,7 +123,7 @@
         title: "Bütün modellər bir səhifədə",
         text: "Kateqoriyanı seç və model üzrə axtarış et. Uyğun avtomobili açaraq ayrıca səhifədə qiymət və qısa təsviri görə bilərsən.",
         filterLabel: "Kateqoriyalar",
-        filterOptions: ["Hamısı", "Ekonom", "Sedan", "SUV", "Premium", "Minivan"],
+        filterOptions: ["Hamısı", "Ekonom", "Komfort", "SUV", "Premium", "Sport", "Minivan"],
         search: "Model və ya marka axtar",
         empty: "Seçilən filtrə uyğun model tapılmadı. Kateqoriyanı dəyiş və ya axtarışı təmizlə.",
         loading: "Avtomobillər backend-dən yüklənir...",
@@ -264,7 +264,7 @@
         title: "Все модели на одной странице",
         text: "Выберите категорию и выполните поиск по модели. Откройте нужный автомобиль, чтобы увидеть цену и краткое описание на отдельной странице.",
         filterLabel: "Категории",
-        filterOptions: ["Все", "Эконом", "Седан", "SUV", "Премиум", "Минивэн"],
+        filterOptions: ["Все", "Эконом", "Комфорт", "SUV", "Премиум", "Спорт", "Минивэн"],
         search: "Поиск по модели или бренду",
         empty: "По выбранному фильтру ничего не найдено. Измените категорию или очистите поиск.",
         loading: "Автомобили загружаются из backend...",
@@ -405,7 +405,7 @@
         title: "All models on one page",
         text: "Pick a category and search by model. Open the right car to see pricing and a short description on its own page.",
         filterLabel: "Categories",
-        filterOptions: ["All", "Economy", "Sedan", "SUV", "Premium", "Minivan"],
+        filterOptions: ["All", "Economy", "Comfort", "SUV", "Premium", "Sport", "Minivan"],
         search: "Search by model or brand",
         empty: "No cars match the selected filter. Change the category or clear the search.",
         loading: "Cars are loading from the backend...",
@@ -482,6 +482,7 @@
 
   let currentLocale = DEFAULT_LOCALE;
   let publicCars = [];
+  let publicCarReservations = [];
   let carsLoadFailed = false;
   let homeHero = Data.normalizeHomeHeroContent(Data.DEFAULT_HOME_HERO);
   let homeCta = Data.normalizeHomeCtaContent(Data.DEFAULT_HOME_CTA);
@@ -490,6 +491,7 @@
   let refreshPromise = null;
   let refreshTimer = null;
   let appBooted = false;
+  let carDetailCountdownTimer = null;
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (match) => ({
     "&": "&amp;",
@@ -500,13 +502,46 @@
   }[match]));
 
   const getAvailabilityCopy = () => AVAILABILITY_COPY[currentLocale] || AVAILABILITY_COPY.az;
+  const SCHEDULE_STATUS_LABELS = {
+    available: "Müsait",
+    reserved: "Rezerve",
+    rented: "Kirada",
+    expired: "Süresi doldu",
+  };
+
+  const formatReservationDateTime = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("tr-TR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  };
+
+  const formatRemainingTime = (milliseconds) => {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) return "Süresi doldu";
+    const totalMinutes = Math.max(1, Math.floor(milliseconds / 60000));
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    if (days > 0) return `${days} gün ${hours} saat kaldı`;
+    if (hours > 0) return `${hours} saat ${minutes} dakika kaldı`;
+    return `${minutes} dakika kaldı`;
+  };
+
+  const getCarAvailabilitySummary = (car) => Data.buildCarReservationSummary(car, publicCarReservations, Date.now());
 
   const resolveAvailabilityState = (carOrState) => {
     const rawState = typeof carOrState === "object" && carOrState !== null
-      ? carOrState.availabilityStatus
+      ? (carOrState.currentStatus || carOrState.availabilityStatus)
       : carOrState;
     const clean = String(rawState || "").trim().toLowerCase();
-    if (["available", "rented", "unavailable"].includes(clean)) return clean;
+    if (clean === "unavailable") return "expired";
+    if (["available", "reserved", "rented", "expired"].includes(clean)) return clean;
     return "available";
   };
 
@@ -547,6 +582,19 @@
     return getAvailabilityCopy().unavailable || "Unavailable";
   };
 
+  const getScheduleAvailabilityLabel = (summaryOrCar) => {
+    const state = resolveAvailabilityState(summaryOrCar);
+    return SCHEDULE_STATUS_LABELS[state] || SCHEDULE_STATUS_LABELS.available;
+  };
+
+  const getScheduleAvailabilityBadgeText = (summaryOrCar) => getScheduleAvailabilityLabel(summaryOrCar);
+
+  const getUpcomingReservationText = (summary) => (
+    summary && summary.currentStatus === "available" && summary.upcomingReservation
+      ? `Yaklaşan rezervasyon: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`
+      : ""
+  );
+
   const getReservationActionCopy = (key) => {
     const dictionary = {
       az: {
@@ -572,7 +620,7 @@
   };
 
   const isCarArchived = (car) => String(car && car.status || "").trim().toLowerCase() === "archived";
-  const isCarReservable = (car) => !isCarArchived(car) && resolveAvailabilityState(car) === "available";
+  const isCarReservable = (car) => !isCarArchived(car) && getCarAvailabilitySummary(car).currentStatus === "available";
 
   const formatCityLabel = (value) => {
     const clean = String(value || "").trim();
@@ -1043,12 +1091,16 @@
   };
 
   const buildCarCard = (car) => {
-    const availabilityState = resolveAvailabilityState(car);
-    const availabilityBadgeText = getAvailabilityBadgeDisplayText(car);
+    const availabilitySummary = getCarAvailabilitySummary(car);
+    const availabilityState = resolveAvailabilityState(availabilitySummary);
+    const availabilityBadgeText = getScheduleAvailabilityBadgeText(availabilitySummary);
+    const upcomingReservationText = getUpcomingReservationText(availabilitySummary);
     const reservable = isCarReservable(car);
     const actionLabel = reservable
       ? localeCopy("card.reserve")
-      : getReservationActionCopy(availabilityState === "rented" ? "rented" : "unavailable");
+      : (["reserved", "rented"].includes(availabilityState)
+        ? availabilityBadgeText
+        : getReservationActionCopy("unavailable"));
     const searchTerms = [
       car.title,
       car.brand,
@@ -1077,6 +1129,7 @@
               <strong>${escapeHtml(car.title)}</strong>
               <span>${escapeHtml(formatPrice(car.dailyPrice))}</span>
             </div>
+            ${upcomingReservationText ? `<div class="fleet-card__notice">${escapeHtml(upcomingReservationText)}</div>` : ""}
             <ul class="fleet-card__specs">
               <li>${escapeHtml(formatSeatCount(car.seats))}</li>
               <li>${escapeHtml(car.fuelType || localeCopy("card.fuelMissing"))}</li>
@@ -1434,8 +1487,9 @@
   const setVehicleVisual = (node, car, images = []) => {
     if (!node) return;
     node.setAttribute("data-model", car.title);
-    const availabilityState = resolveAvailabilityState(car);
-    const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getAvailabilityBadgeDisplayText(car))}</span>`;
+    const availabilitySummary = getCarAvailabilitySummary(car);
+    const availabilityState = resolveAvailabilityState(availabilitySummary);
+    const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getScheduleAvailabilityBadgeText(availabilitySummary))}</span>`;
     node.style.backgroundImage = "none";
     if (!images.length) {
       node.innerHTML = `
@@ -1521,10 +1575,98 @@
     };
   };
 
+  const renderVehicleRentalState = (node, car) => {
+    if (!node) return;
+    const summary = getCarAvailabilitySummary(car);
+    const currentStatus = resolveAvailabilityState(summary);
+
+    if (carDetailCountdownTimer) {
+      window.clearInterval(carDetailCountdownTimer);
+      carDetailCountdownTimer = null;
+    }
+
+    const renderSnapshot = () => {
+      const liveSummary = getCarAvailabilitySummary(car);
+      const liveStatus = resolveAvailabilityState(liveSummary);
+
+      if (liveStatus === "rented" && liveSummary.activeReservation) {
+        node.hidden = false;
+        node.innerHTML = `
+          <div class="vehicle-rental-state__head">
+            <strong>Kiralama takvimi</strong>
+            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--rented">Kirada</span>
+          </div>
+          <div class="vehicle-rental-state__grid">
+            <div><span>Kiralama başlangıcı</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.startDateTime))}</strong></div>
+            <div><span>Kiralama bitişi</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.endDateTime))}</strong></div>
+            <div class="vehicle-rental-state__full"><span>Kalan süre</span><strong>${escapeHtml(formatRemainingTime(liveSummary.remainingMs))}</strong></div>
+          </div>
+        `;
+        return;
+      }
+
+      if (liveStatus === "reserved" && liveSummary.activeReservation) {
+        node.hidden = false;
+        node.innerHTML = `
+          <div class="vehicle-rental-state__head">
+            <strong>Rezervasyon takvimi</strong>
+            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--reserved">Rezerve</span>
+          </div>
+          <div class="vehicle-rental-state__grid">
+            <div><span>Rezervasyon başlangıcı</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.startDateTime))}</strong></div>
+            <div><span>Rezervasyon bitişi</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.endDateTime))}</strong></div>
+          </div>
+        `;
+        return;
+      }
+
+      if (liveSummary.upcomingReservation) {
+        node.hidden = false;
+        node.innerHTML = `
+          <div class="vehicle-rental-state__head">
+            <strong>Yaklaşan rezervasyon</strong>
+            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--available">Müsait</span>
+          </div>
+          <div class="vehicle-rental-state__grid">
+            <div class="vehicle-rental-state__full"><span>Başlangıç</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.upcomingReservation.startDateTime))}</strong></div>
+          </div>
+        `;
+        return;
+      }
+
+      if (liveStatus === "expired" && liveSummary.latestExpiredReservation) {
+        node.hidden = false;
+        node.innerHTML = `
+          <div class="vehicle-rental-state__head">
+            <strong>Son durum</strong>
+            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--expired">Süresi doldu</span>
+          </div>
+          <div class="vehicle-rental-state__grid">
+            <div class="vehicle-rental-state__full"><span>Bitiş</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.latestExpiredReservation.endDateTime))}</strong></div>
+          </div>
+        `;
+        return;
+      }
+
+      node.hidden = true;
+      node.innerHTML = "";
+    };
+
+    renderSnapshot();
+
+    if (currentStatus === "rented") {
+      carDetailCountdownTimer = window.setInterval(renderSnapshot, 60000);
+    }
+  };
+
   const renderCarDetail = async () => {
     if (!["car", "car-detail"].includes(page())) return;
     const slug = getRequestedCarSlug();
     if (!slug) return;
+    if (carDetailCountdownTimer) {
+      window.clearInterval(carDetailCountdownTimer);
+      carDetailCountdownTimer = null;
+    }
     const car = getCarBySlug(slug) || await Data.getPublishedCarBySlug(slug);
     const main = qs("main");
     const carCopy = localeCopy("car");
@@ -1561,10 +1703,13 @@
     const descriptionTitle = qs("[data-car-description-title]") || qs(".vehicle-layout .content-card h3");
     const description = qs("[data-car-description]") || qs(".vehicle-layout .content-card p");
     const features = qs("[data-car-features]");
+    const rentalState = qs("[data-car-rental-state]");
     const gallery = qs("[data-car-gallery]");
     const gallerySection = qs("[data-car-gallery-section]");
 
     const images = getCarMediaImages(car);
+    const availabilitySummary = getCarAvailabilitySummary(car);
+    const availabilityState = resolveAvailabilityState(availabilitySummary);
 
     if (eyebrow) eyebrow.textContent = car.featured ? carCopy.featuredEyebrow : getCategoryLabel(car.category);
     if (title) title.textContent = car.year ? `${car.title} ${car.year}` : car.title;
@@ -1573,6 +1718,7 @@
     if (descriptionTitle) descriptionTitle.textContent = carCopy.aboutTitle;
     if (description) description.textContent = car.description || getCarSummary(car);
     const mediaController = setVehicleVisual(visual, car, images);
+    renderVehicleRentalState(rentalState, car);
 
     const chipValues = [
       [carCopy.specLabels[0], formatPrice(car.dailyPrice)],
@@ -1593,7 +1739,7 @@
     const ctas = qsa(".vehicle-cta-group .button");
     if (ctas[0]) {
       const reservable = isCarReservable(car);
-      ctas[0].textContent = reservable ? localeCopy("nav.reserve") : getReservationActionCopy("whatsapp");
+      ctas[0].textContent = reservable ? localeCopy("nav.reserve") : getReservationActionCopy(["rented", "reserved"].includes(availabilityState) ? "whatsapp" : "whatsapp");
       ctas[0].setAttribute(
         "href",
         reservable
@@ -1615,24 +1761,8 @@
       features.innerHTML = items.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
     }
 
-    if (gallerySection) {
-      const titleNode = qs("h3", gallerySection);
-      if (titleNode) titleNode.textContent = carCopy.galleryTitle;
-    }
-    if (gallery && gallerySection) {
-      if (!images.length) gallerySection.hidden = true;
-      else {
-        gallerySection.hidden = false;
-        gallery.innerHTML = images.map((url, index) => `
-          <article class="${getGalleryItemClassName(index, images.length)}">
-            <button class="vehicle-gallery__button" type="button" data-gallery-index="${index}" aria-label="${escapeHtml(`${car.title} ${index + 1}`)}">
-              <img src="${escapeHtml(url)}" alt="${escapeHtml(`${car.title} ${index + 1}`)}" loading="lazy" />
-            </button>
-          </article>
-        `).join("");
-        mediaController.bindGallery(gallery);
-      }
-    }
+    if (gallerySection) gallerySection.hidden = true;
+    if (gallery) gallery.innerHTML = "";
   };
 
   const showCarsErrorState = (message) => {
@@ -1649,8 +1779,9 @@
     renderCarDetail();
   };
 
-  const applyPublicContentSnapshot = ({ cars, hero, spotlight, cta, failed }) => {
+  const applyPublicContentSnapshot = ({ cars, reservations, hero, spotlight, cta, failed }) => {
     publicCars = Array.isArray(cars) ? cars : [];
+    publicCarReservations = Array.isArray(reservations) ? reservations : [];
     homeHero = hero || Data.normalizeHomeHeroContent(Data.DEFAULT_HOME_HERO);
     homeSpotlight = spotlight || Data.normalizeHomeSpotlightContent(Data.DEFAULT_HOME_SPOTLIGHT);
     homeCta = cta || Data.normalizeHomeCtaContent(Data.DEFAULT_HOME_CTA);
@@ -1662,8 +1793,9 @@
 
     refreshPromise = (async () => {
       try {
-        const [cars, hero, spotlight, cta] = await Promise.all([
+        const [cars, reservations, hero, spotlight, cta] = await Promise.all([
           Data.listPublishedCars({ force: true }),
+          Data.listPublicCarReservations({ force: true }).catch(() => []),
           Data.getHomeHeroContent().catch(() => Data.normalizeHomeHeroContent(Data.DEFAULT_HOME_HERO)),
           Data.getHomeSpotlightContent().catch(() => Data.normalizeHomeSpotlightContent(Data.DEFAULT_HOME_SPOTLIGHT)),
           Data.getHomeCtaContent().catch(() => Data.normalizeHomeCtaContent(Data.DEFAULT_HOME_CTA)),
@@ -1671,6 +1803,7 @@
 
         applyPublicContentSnapshot({
           cars,
+          reservations,
           hero,
           spotlight,
           cta,
@@ -1679,6 +1812,7 @@
       } catch {
         applyPublicContentSnapshot({
           cars: [],
+          reservations: [],
           hero: Data.normalizeHomeHeroContent(Data.DEFAULT_HOME_HERO),
           spotlight: Data.normalizeHomeSpotlightContent(Data.DEFAULT_HOME_SPOTLIGHT),
           cta: Data.normalizeHomeCtaContent(Data.DEFAULT_HOME_CTA),

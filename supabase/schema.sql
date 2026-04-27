@@ -28,7 +28,7 @@ create table if not exists public.cars (
   featured boolean not null default false,
   status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
   stock_count integer not null default 1,
-  availability_status text not null default 'available' check (availability_status in ('available', 'rented', 'unavailable')),
+  availability_status text not null default 'available' check (availability_status in ('available', 'reserved', 'rented', 'expired', 'unavailable')),
   rental_days integer,
   category text not null default 'economy',
   sort_order integer not null default 0,
@@ -50,6 +50,13 @@ alter table public.cars
 alter table public.cars
   alter column category set default 'economy';
 
+alter table public.cars
+  drop constraint if exists cars_availability_status_check;
+
+alter table public.cars
+  add constraint cars_availability_status_check
+  check (availability_status in ('available', 'reserved', 'rented', 'expired', 'unavailable'));
+
 do $$
 begin
   if not exists (
@@ -60,17 +67,6 @@ begin
   ) then
     alter table public.cars
       add constraint cars_stock_count_check check (stock_count >= 0);
-  end if;
-
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'cars_availability_status_check'
-      and conrelid = 'public.cars'::regclass
-  ) then
-    alter table public.cars
-      add constraint cars_availability_status_check
-      check (availability_status in ('available', 'rented', 'unavailable'));
   end if;
 
   if not exists (
@@ -111,6 +107,34 @@ create table if not exists public.reservations (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.car_reservations (
+  id uuid primary key default gen_random_uuid(),
+  car_id uuid not null references public.cars(id) on delete cascade,
+  status text not null default 'reserved' check (status in ('reserved', 'rented', 'expired')),
+  customer_name text not null,
+  customer_phone text not null,
+  start_at timestamptz not null,
+  rental_days integer not null default 1,
+  end_at timestamptz not null,
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint car_reservations_rental_days_check check (rental_days >= 1),
+  constraint car_reservations_time_check check (end_at > start_at)
+);
+
+create or replace view public.public_car_reservations as
+select
+  id,
+  car_id,
+  status,
+  start_at,
+  rental_days,
+  end_at,
+  created_at,
+  updated_at
+from public.car_reservations;
+
 create index if not exists cars_status_featured_sort_idx
   on public.cars (status, featured desc, sort_order asc, updated_at desc);
 
@@ -122,6 +146,12 @@ create index if not exists reservations_status_created_idx
 
 create index if not exists reservations_car_slug_idx
   on public.reservations (car_slug, created_at desc);
+
+create index if not exists car_reservations_car_id_start_idx
+  on public.car_reservations (car_id, start_at asc);
+
+create index if not exists car_reservations_status_end_idx
+  on public.car_reservations (status, end_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -168,10 +198,17 @@ before update on public.reservations
 for each row
 execute function public.set_updated_at();
 
+drop trigger if exists car_reservations_set_updated_at on public.car_reservations;
+create trigger car_reservations_set_updated_at
+before update on public.car_reservations
+for each row
+execute function public.set_updated_at();
+
 alter table public.admin_users enable row level security;
 alter table public.cars enable row level security;
 alter table public.site_content enable row level security;
 alter table public.reservations enable row level security;
+alter table public.car_reservations enable row level security;
 
 drop policy if exists "Admin users can read own row" on public.admin_users;
 create policy "Admin users can read own row"
@@ -269,6 +306,37 @@ create policy "Admins can delete reservations"
   for delete
   to authenticated
   using (public.is_admin_user());
+
+drop policy if exists "Admins can read car reservations" on public.car_reservations;
+create policy "Admins can read car reservations"
+  on public.car_reservations
+  for select
+  to authenticated
+  using (public.is_admin_user());
+
+drop policy if exists "Admins can insert car reservations" on public.car_reservations;
+create policy "Admins can insert car reservations"
+  on public.car_reservations
+  for insert
+  to authenticated
+  with check (public.is_admin_user());
+
+drop policy if exists "Admins can update car reservations" on public.car_reservations;
+create policy "Admins can update car reservations"
+  on public.car_reservations
+  for update
+  to authenticated
+  using (public.is_admin_user())
+  with check (public.is_admin_user());
+
+drop policy if exists "Admins can delete car reservations" on public.car_reservations;
+create policy "Admins can delete car reservations"
+  on public.car_reservations
+  for delete
+  to authenticated
+  using (public.is_admin_user());
+
+grant select on public.public_car_reservations to anon, authenticated;
 
 insert into public.site_content (key, value)
 values (
