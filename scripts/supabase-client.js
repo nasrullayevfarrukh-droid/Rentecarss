@@ -238,10 +238,12 @@
   let configPromise = null;
   let publishedCarsCache = null;
   let publicCarReservationsCache = null;
+  let fallbackCarReservationsCache = null;
   let carsSchemaMode = "full";
   let legacyCarStatusOverridesCache = null;
   let siteContentSchemaMode = "full";
   let carReservationsSchemaMode = "full";
+  const CAR_RESERVATIONS_FALLBACK_KEY = "car_reservations_fallback";
 
   const safeJsonParse = (value, fallback = null) => {
     try {
@@ -483,6 +485,17 @@
     }
     return snapshot;
   };
+
+  const createUuid = () => {
+    try {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return window.crypto.randomUUID();
+      }
+    } catch {
+      // ignore crypto issues
+    }
+    return `fallback-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  };
   
   const slugify = (value) =>
   String(value || "")
@@ -562,6 +575,75 @@
     createdAt: record.created_at || "",
     updatedAt: record.updated_at || "",
   });
+
+  const sortCarReservations = (items, direction = "asc") => {
+    const factor = direction === "desc" ? -1 : 1;
+    return [...toArray(items)].sort((left, right) => {
+      const leftTime = toTimestamp(left && left.startDateTime) ?? toTimestamp(left && left.start_at) ?? 0;
+      const rightTime = toTimestamp(right && right.startDateTime) ?? toTimestamp(right && right.start_at) ?? 0;
+      return (leftTime - rightTime) * factor;
+    });
+  };
+
+  const normalizeCarReservationsFallbackStore = (value) => {
+    const source = value && typeof value === "object" ? value : {};
+    const items = Array.isArray(source.items) ? source.items : [];
+    return {
+      items: sortCarReservations(
+        items
+          .map((item) => normalizeCarReservationRecord(item))
+          .filter((item) => item.id && item.carId && item.startDateTime && item.endDateTime),
+        "asc"
+      ).map((item) => ({
+        id: item.id,
+        car_id: item.carId,
+        status: item.status,
+        customer_name: item.customerName,
+        customer_phone: item.customerPhone,
+        start_at: item.startDateTime,
+        rental_days: item.rentalDays,
+        end_at: item.endDateTime,
+        note: item.note,
+        created_at: item.createdAt || new Date().toISOString(),
+        updated_at: item.updatedAt || new Date().toISOString(),
+      })),
+    };
+  };
+
+  const sanitizePublicCarReservationRecord = (item) => ({
+    ...item,
+    customerName: "",
+    customerPhone: "",
+    note: "",
+  });
+
+  const listFallbackCarReservations = async ({ force = false, admin = false } = {}) => {
+    if (!force && fallbackCarReservationsCache) {
+      const cached = sortCarReservations(fallbackCarReservationsCache, "asc");
+      return admin ? cached : cached.map(sanitizePublicCarReservationRecord);
+    }
+
+    const snapshot = await getSiteContent(
+      CAR_RESERVATIONS_FALLBACK_KEY,
+      { admin, fallback: { items: [] } }
+    );
+    const normalized = normalizeCarReservationsFallbackStore(snapshot)
+      .items
+      .map((item) => normalizeCarReservationRecord(item));
+    fallbackCarReservationsCache = normalized.slice();
+    carReservationsSchemaMode = "fallback";
+    const items = sortCarReservations(normalized, "asc");
+    return admin ? items : items.map(sanitizePublicCarReservationRecord);
+  };
+
+  const saveFallbackCarReservations = async (items) => {
+    const normalizedStore = normalizeCarReservationsFallbackStore({ items });
+    await saveSiteContent(CAR_RESERVATIONS_FALLBACK_KEY, normalizedStore);
+    fallbackCarReservationsCache = normalizedStore.items.map((item) => normalizeCarReservationRecord(item));
+    publicCarReservationsCache = null;
+    carReservationsSchemaMode = "fallback";
+    return sortCarReservations(fallbackCarReservationsCache, "asc");
+  };
 
   const getEffectiveCarReservationStatus = (reservation, now = Date.now()) => {
     const endTimestamp = toTimestamp(reservation && reservation.endDateTime);
@@ -1298,6 +1380,7 @@
         throw error;
       }
       carReservationsSchemaMode = "missing";
+      fallbackCarReservationsCache = null;
       if (allowMissing) {
         return [];
       }
@@ -1508,12 +1591,41 @@
       order: "start_at.asc",
     });
 
-    const items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord) : [];
+    if (carReservationsSchemaMode === "missing") {
+      const items = await listFallbackCarReservations({ force, admin: false });
+      publicCarReservationsCache = items.slice();
+      return items;
+    }
+
+    const items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord).map(sanitizePublicCarReservationRecord) : [];
     publicCarReservationsCache = items.slice();
+    fallbackCarReservationsCache = null;
     return items;
   };
 
   const markExpiredCarReservations = async (items = null) => {
+    if (carReservationsSchemaMode === "fallback" || carReservationsSchemaMode === "missing") {
+      const source = await listFallbackCarReservations({ force: true, admin: true });
+      const staleItems = source.filter((item) => (
+        normalizeCarReservationStatus(item.status, "reserved") !== "expired"
+        && toTimestamp(item.endDateTime) !== null
+        && toTimestamp(item.endDateTime) <= Date.now()
+      ));
+
+      if (!staleItems.length) {
+        return 0;
+      }
+
+      const staleIds = new Set(staleItems.map((item) => item.id));
+      const nowIso = new Date().toISOString();
+      await saveFallbackCarReservations(source.map((item) => (
+        staleIds.has(item.id)
+          ? { ...item, status: "expired", updatedAt: nowIso }
+          : item
+      )));
+      return staleItems.length;
+    }
+
     const source = Array.isArray(items) ? items : await listAdminCarReservations({ syncExpired: false });
     const staleItems = source.filter((item) => (
       normalizeCarReservationStatus(item.status, "reserved") !== "expired"
@@ -1545,6 +1657,20 @@
       order: "start_at.desc",
       filters: carId ? { car_id: `eq.${toStringValue(carId)}` } : {},
     });
+
+    if (carReservationsSchemaMode === "missing") {
+      let fallbackItems = await listFallbackCarReservations({ force: true, admin: true });
+      if (syncExpired) {
+        const changed = await markExpiredCarReservations(fallbackItems);
+        if (changed > 0) {
+          fallbackItems = await listFallbackCarReservations({ force: true, admin: true });
+        }
+      }
+      const filteredFallback = carId
+        ? fallbackItems.filter((item) => item.carId === toStringValue(carId))
+        : fallbackItems;
+      return sortCarReservations(filteredFallback, "desc");
+    }
 
     let items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord) : [];
     if (syncExpired) {
@@ -1598,15 +1724,33 @@
     const payload = serializeCarReservationPayload(input);
     await assertCarReservationAvailability(payload);
 
-    const rows = await requestCarReservationsRest({
-      admin: true,
-      method: "POST",
-      body: payload,
-      select: CAR_RESERVATION_COLUMNS,
-      prefer: "return=representation",
-    });
+    let rows;
+    try {
+      rows = await requestCarReservationsRest({
+        admin: true,
+        method: "POST",
+        body: payload,
+        select: CAR_RESERVATION_COLUMNS,
+        prefer: "return=representation",
+      });
+    } catch (error) {
+      if (!isMissingCarReservationsSchemaError(error)) {
+        throw error;
+      }
+      const source = await listFallbackCarReservations({ force: true, admin: true });
+      const nowIso = new Date().toISOString();
+      const fallbackRecord = normalizeCarReservationRecord({
+        id: createUuid(),
+        ...payload,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+      await saveFallbackCarReservations([...source, fallbackRecord]);
+      return fallbackRecord;
+    }
 
     publicCarReservationsCache = null;
+    fallbackCarReservationsCache = null;
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
@@ -1614,26 +1758,56 @@
     const payload = serializeCarReservationPayload(input);
     await assertCarReservationAvailability(payload, toStringValue(id));
 
-    const rows = await requestCarReservationsRest({
-      admin: true,
-      method: "PATCH",
-      filters: { id: `eq.${toStringValue(id)}` },
-      body: payload,
-      select: CAR_RESERVATION_COLUMNS,
-      prefer: "return=representation",
-    });
+    let rows;
+    try {
+      rows = await requestCarReservationsRest({
+        admin: true,
+        method: "PATCH",
+        filters: { id: `eq.${toStringValue(id)}` },
+        body: payload,
+        select: CAR_RESERVATION_COLUMNS,
+        prefer: "return=representation",
+      });
+    } catch (error) {
+      if (!isMissingCarReservationsSchemaError(error)) {
+        throw error;
+      }
+      const source = await listFallbackCarReservations({ force: true, admin: true });
+      const targetId = toStringValue(id);
+      const target = source.find((item) => item.id === targetId);
+      if (!target) return null;
+      const fallbackRecord = normalizeCarReservationRecord({
+        id: target.id,
+        ...payload,
+        created_at: target.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      await saveFallbackCarReservations(source.map((item) => (item.id === targetId ? fallbackRecord : item)));
+      return fallbackRecord;
+    }
 
     publicCarReservationsCache = null;
+    fallbackCarReservationsCache = null;
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
   const deleteCarReservation = async (id) => {
-    await requestCarReservationsRest({
-      admin: true,
-      method: "DELETE",
-      filters: { id: `eq.${toStringValue(id)}` },
-      prefer: "return=minimal",
-    });
+    try {
+      await requestCarReservationsRest({
+        admin: true,
+        method: "DELETE",
+        filters: { id: `eq.${toStringValue(id)}` },
+        prefer: "return=minimal",
+      });
+      fallbackCarReservationsCache = null;
+    } catch (error) {
+      if (!isMissingCarReservationsSchemaError(error)) {
+        throw error;
+      }
+      const targetId = toStringValue(id);
+      const source = await listFallbackCarReservations({ force: true, admin: true });
+      await saveFallbackCarReservations(source.filter((item) => item.id !== targetId));
+    }
     publicCarReservationsCache = null;
   };
 
