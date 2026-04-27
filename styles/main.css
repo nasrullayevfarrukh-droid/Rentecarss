@@ -1100,14 +1100,15 @@ h3,
 
 .vehicle-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-  gap: 20px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 560px);
+  gap: 28px;
+  align-items: stretch;
 }
 
 .vehicle-summary {
   display: grid;
-  gap: 14px;
+  align-content: center;
+  gap: 16px;
 }
 
 .vehicle-summary h1 {
@@ -1128,66 +1129,218 @@ h3,
 
 .vehicle-visual {
   position: relative;
-  min-height: 320px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 16px;
+  align-items: stretch;
+  min-height: 420px;
   border-radius: 26px;
-  overflow: hidden;
-  background-color: #efe7df;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: cover;
+  overflow: visible;
+  background: transparent;
 }
 
 .vehicle-visual::after {
-  content: attr(data-model);
+  content: none;
+}
+
+.vehicle-visual__stage {
+  position: relative;
+  overflow: hidden;
+  min-height: 100%;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 107, 60, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(17, 19, 24, 0.24)),
+    linear-gradient(135deg, rgba(255, 107, 60, 0.12), rgba(255, 81, 71, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 38px rgba(18, 14, 17, 0.18);
+}
+
+.vehicle-visual__image {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  transition: transform 320ms ease, opacity 220ms ease, filter 220ms ease;
+}
+
+.vehicle-visual__stage:hover .vehicle-visual__image {
+  transform: scale(1.016);
+}
+
+.vehicle-visual__overlay {
   position: absolute;
-  left: 20px;
-  bottom: 18px;
-  color: #ffffff;
-  font-family: "Outfit", sans-serif;
-  font-size: 1.8rem;
+  inset: auto 18px 18px 18px;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  pointer-events: none;
+}
+
+.vehicle-visual__overlay::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(12, 14, 18, 0), rgba(12, 14, 18, 0.62));
+  z-index: -1;
+}
+
+.vehicle-visual__caption {
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: rgba(18, 14, 17, 0.46);
+  color: #fffaf7;
+  font-size: 1.55rem;
   font-weight: 800;
   letter-spacing: -0.04em;
-  z-index: 1;
+  backdrop-filter: blur(14px);
 }
 
-.vehicle-visual--cerato {
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(17, 19, 24, 0.24)),
-    url("../kia-cerato.png");
-  background-size: cover, contain;
-  background-repeat: no-repeat, no-repeat;
-  background-position: center, center;
+.vehicle-visual__count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 250, 246, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff9f5;
+  font-size: 0.86rem;
+  font-weight: 700;
+  backdrop-filter: blur(14px);
 }
 
-.vehicle-visual--elantra {
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(17, 19, 24, 0.24)),
-    url("../1771498375305-ChatGPT-Image-Feb-19,-2026,-02_48_45-PM.png");
-  background-position: center 56%;
+.vehicle-visual__nav {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(18, 14, 17, 0.48);
+  color: #fffaf7;
+  font-size: 1.5rem;
+  font-weight: 700;
+  transform: translateY(-50%);
+  backdrop-filter: blur(12px);
+  transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 
-.vehicle-visual--tucson {
-  background-image:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(17, 19, 24, 0.24)),
-    url("../images (1).jpg");
-  background-position: center 54%;
+.vehicle-visual__nav:hover,
+.vehicle-visual__nav:focus-visible {
+  background: rgba(255, 107, 60, 0.74);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 16px 30px rgba(10, 10, 12, 0.24);
+}
+
+.vehicle-visual__nav:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.vehicle-visual__nav--prev {
+  left: 18px;
+}
+
+.vehicle-visual__nav--next {
+  right: 18px;
+}
+
+.vehicle-visual__nav[hidden] {
+  display: none;
+}
+
+.vehicle-visual__thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.vehicle-visual__thumb {
+  position: relative;
+  flex: 1 1 0;
+  overflow: hidden;
+  min-height: 74px;
+  padding: 0;
+  border: 1px solid rgba(255, 107, 60, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 251, 247, 0.84);
+  box-shadow: 0 14px 30px rgba(17, 13, 16, 0.08);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+}
+
+.vehicle-visual__thumb:hover,
+.vehicle-visual__thumb:focus-visible {
+  transform: translateX(-3px);
+  border-color: rgba(255, 107, 60, 0.28);
+  box-shadow: 0 18px 34px rgba(17, 13, 16, 0.12);
+}
+
+.vehicle-visual__thumb.is-active {
+  border-color: rgba(255, 107, 60, 0.36);
+  box-shadow: 0 18px 34px rgba(255, 97, 58, 0.16);
+}
+
+.vehicle-visual__thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.vehicle-visual__thumb img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.vehicle-visual__thumb:hover img,
+.vehicle-visual__thumb:focus-visible img,
+.vehicle-visual__thumb.is-active img {
+  transform: scale(1.04);
+}
+
+.vehicle-visual__thumb.is-active img {
+  opacity: 1;
+}
+
+.vehicle-visual__thumb:not(.is-active) img {
+  opacity: 0.84;
 }
 
 .vehicle-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   align-items: start;
 }
 
 .vehicle-actions {
   align-content: start;
+  position: sticky;
+  top: 126px;
 }
 
 .spec-chip {
+  display: grid;
   gap: 6px;
   padding: 18px;
 }
 
 .spec-chip span {
+  display: block;
   color: var(--accent);
   font-size: 0.78rem;
   font-weight: 800;
@@ -1196,6 +1349,7 @@ h3,
 }
 
 .spec-chip strong {
+  display: block;
   font-size: 1rem;
   line-height: 1.55;
 }
@@ -1409,6 +1563,10 @@ h3,
 
   .fleet-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vehicle-actions {
+    position: static;
   }
 }
 
@@ -2616,6 +2774,22 @@ body[data-theme="dark"] .vehicle-status {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+body[data-theme="dark"] .vehicle-visual__stage {
+  border-color: rgba(255, 110, 64, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(7, 9, 12, 0.3)),
+    linear-gradient(135deg, rgba(255, 107, 60, 0.08), rgba(255, 81, 71, 0.04));
+}
+
+body[data-theme="dark"] .vehicle-visual__thumb {
+  background: rgba(31, 24, 28, 0.94);
+  border-color: rgba(255, 110, 64, 0.16);
+}
+
+body[data-theme="dark"] .vehicle-visual__thumb.is-active {
+  border-color: rgba(255, 110, 64, 0.34);
+}
+
 @media (max-width: 640px) {
   .fleet-card__availability {
     top: 18px;
@@ -2631,6 +2805,10 @@ body[data-theme="dark"] .vehicle-status {
     right: 16px;
     max-width: calc(100% - 32px);
     font-size: 0.72rem;
+  }
+
+  .vehicle-actions {
+    position: static;
   }
 }
 
@@ -3205,8 +3383,8 @@ body[data-theme="dark"] .cta-banner__meta span {
 
 .vehicle-gallery {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
 }
 
 .vehicle-gallery__item {
@@ -3214,12 +3392,55 @@ body[data-theme="dark"] .cta-banner__meta span {
   border-radius: 22px;
   border: 1px solid rgba(255, 107, 60, 0.14);
   background: rgba(255, 255, 255, 0.9);
+  grid-column: span 4;
+  box-shadow: 0 16px 32px rgba(16, 12, 14, 0.08);
+}
+
+.vehicle-gallery__item--wide {
+  grid-column: span 8;
+}
+
+.vehicle-gallery__button {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  display: block;
+  border-radius: inherit;
+  overflow: hidden;
+  background: transparent;
+  transition: transform 200ms ease;
+}
+
+.vehicle-gallery__button:hover,
+.vehicle-gallery__button:focus-visible {
+  transform: translateY(-3px);
+}
+
+.vehicle-gallery__button.is-active {
+  box-shadow: inset 0 0 0 2px rgba(255, 107, 60, 0.3);
 }
 
 .vehicle-gallery__item img {
   width: 100%;
-  aspect-ratio: 1.15;
+  aspect-ratio: 1.18;
   object-fit: cover;
+  display: block;
+  transition: transform 260ms ease, filter 220ms ease;
+}
+
+.vehicle-gallery__item--wide img {
+  aspect-ratio: 1.56;
+}
+
+.vehicle-gallery__button:hover img,
+.vehicle-gallery__button:focus-visible img,
+.vehicle-gallery__button.is-active img {
+  transform: scale(1.03);
+}
+
+.vehicle-gallery__button.is-active img {
+  filter: saturate(1.03);
 }
 
 body[data-theme="dark"] .section-message,
@@ -3231,14 +3452,63 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
 }
 
 @media (max-width: 980px) {
+  .vehicle-visual {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .vehicle-visual__image {
+    min-height: 360px;
+  }
+
+  .vehicle-visual__thumbs {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(92px, 1fr);
+    overflow-x: auto;
+    height: auto;
+    padding-bottom: 4px;
+  }
+
+  .vehicle-visual__thumb {
+    min-height: 90px;
+  }
+
   .vehicle-gallery {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vehicle-gallery__item,
+  .vehicle-gallery__item--wide {
+    grid-column: auto;
   }
 }
 
 @media (max-width: 640px) {
   .vehicle-gallery {
     grid-template-columns: 1fr;
+  }
+
+  .vehicle-visual__stage {
+    border-radius: 24px;
+  }
+
+  .vehicle-visual__image {
+    min-height: 280px;
+  }
+
+  .vehicle-visual__caption {
+    font-size: 1.18rem;
+  }
+
+  .vehicle-visual__nav {
+    width: 42px;
+    height: 42px;
+  }
+
+  .vehicle-gallery__item img,
+  .vehicle-gallery__item--wide img {
+    aspect-ratio: 1.18;
   }
 
   .section-message {

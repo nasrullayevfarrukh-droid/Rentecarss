@@ -26,12 +26,13 @@
     "status",
     "stock_count",
     "availability_status",
+    "rental_days",
     "category",
     "sort_order",
     "created_at",
     "updated_at"
   ];
-  const LEGACY_CAR_OPTIONAL_COLUMNS = ["stock_count", "availability_status"];
+  const LEGACY_CAR_OPTIONAL_COLUMNS = ["stock_count", "availability_status", "rental_days"];
   const LEGACY_PUBLIC_CAR_COLUMN_LIST = PUBLIC_CAR_COLUMN_LIST.filter(
     (column) => !LEGACY_CAR_OPTIONAL_COLUMNS.includes(column)
   );
@@ -133,7 +134,7 @@
   const DEFAULT_HOME_HERO = {
     badge: "Bakı üzrə avtomobil icarəsi",
     title: "50 AZN-dən başlayan gündəlik və həftəlik avtomobil icarəsi",
-    text: "Rentacarss.az ilə sedan, SUV, premium və minivan modellərini rahat şəkildə seçə, qiymətləri görə və rezervasiya müraciətini birbaşa göndərə bilərsən. Saytın əsas məqsədi seçimi və əlaqəni sadə saxlamaqdır.",
+    text: "Rentacarss.az ilə ekonom, komfort, SUV, premium, sport və minivan modellərini rahat şəkildə seçə, qiymətləri görə və rezervasiya müraciətini birbaşa göndərə bilərsən. Saytın əsas məqsədi seçimi və əlaqəni sadə saxlamaqdır.",
     primaryButtonLabel: "Avtomobillərə bax",
     primaryButtonLink: "./pages/fleet.html",
     secondaryButtonLabel: "Əlaqə saxla",
@@ -147,7 +148,7 @@
       ru: {
         badge: "Прокат авто по Баку",
         title: "Посуточная и недельная аренда авто от 50 AZN",
-        text: "С Rentacarss.az можно быстро выбрать sedan, SUV, premium и minivan модели, увидеть цену и сразу отправить заявку на бронирование. Главная цель сайта — оставить выбор и контакт простыми.",
+        text: "С Rentacarss.az можно быстро выбрать economy, comfort, SUV, premium, sport и minivan модели, увидеть цену и сразу отправить заявку на бронирование. Главная цель сайта — оставить выбор и контакт простыми.",
         primaryButtonLabel: "Посмотреть автомобили",
         secondaryButtonLabel: "Связаться",
         trustItems: [
@@ -159,7 +160,7 @@
       en: {
         badge: "Car rental across Baku",
         title: "Daily and weekly car rental starting from 50 AZN",
-        text: "With Rentacarss.az you can quickly choose sedan, SUV, premium, and minivan models, check pricing, and send a reservation request right away. The main goal of the site is to keep selection and contact simple.",
+        text: "With Rentacarss.az you can quickly choose economy, comfort, SUV, premium, sport, and minivan models, check pricing, and send a reservation request right away. The main goal of the site is to keep selection and contact simple.",
         primaryButtonLabel: "View cars",
         secondaryButtonLabel: "Contact us",
         trustItems: [
@@ -462,7 +463,8 @@
       record.availability_status,
       toInteger(record.stock_count, 1) === 0 ? "unavailable" : "available"
     ),
-    category: toStringValue(record.category || "sedan"),
+    rentalDays: toInteger(record.rental_days, null),
+    category: toStringValue(record.category || "economy"),
     sortOrder: toNumber(record.sort_order) || 0,
     createdAt: record.created_at || "",
     updatedAt: record.updated_at || "",
@@ -492,6 +494,7 @@
       input.availabilityStatus,
       stockCount === 0 ? "unavailable" : "available"
     );
+    const rentalDays = availabilityStatus === "rented" ? toInteger(input.rentalDays, null) : null;
     return {
       slug: toStringValue(input.slug) || slugify(title),
       title,
@@ -514,7 +517,8 @@
       status: toStringValue(input.status) || "draft",
       stock_count: stockCount,
       availability_status: stockCount === 0 && availabilityStatus === "available" ? "unavailable" : availabilityStatus,
-      category: toStringValue(input.category) || "sedan",
+      rental_days: rentalDays,
+      category: toStringValue(input.category) || "economy",
       sort_order: toNumber(input.sortOrder) || 0,
     };
   };
@@ -568,9 +572,15 @@
     const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
     return Object.entries(source).reduce((acc, [slug, status]) => {
       const cleanSlug = toStringValue(slug);
-      const cleanStatus = normalizeAvailabilityStatus(status, "");
+      const statusSource = status && typeof status === "object" && !Array.isArray(status)
+        ? status
+        : { availabilityStatus: status };
+      const cleanStatus = normalizeAvailabilityStatus(statusSource.availabilityStatus, "");
       if (cleanSlug && cleanStatus === "rented") {
-        acc[cleanSlug] = cleanStatus;
+        acc[cleanSlug] = {
+          availabilityStatus: "rented",
+          rentalDays: toInteger(statusSource.rentalDays, null),
+        };
       }
       return acc;
     }, {});
@@ -609,17 +619,19 @@
         return {
           ...car,
           availabilityStatus: "unavailable",
+          rentalDays: null,
         };
       }
 
       return {
         ...car,
-        availabilityStatus: overrides[car.slug] === "rented" ? "rented" : "available",
+        availabilityStatus: overrides[car.slug] && overrides[car.slug].availabilityStatus === "rented" ? "rented" : "available",
+        rentalDays: overrides[car.slug] ? toInteger(overrides[car.slug].rentalDays, null) : null,
       };
     });
   };
 
-  const persistLegacyCarStatus = async (car, desiredAvailability, desiredStatus) => {
+  const persistLegacyCarStatus = async (car, desiredAvailability, desiredStatus, desiredRentalDays = null) => {
     if (carsSchemaMode !== "legacy" || !car || !toStringValue(car.slug)) {
       return car;
     }
@@ -629,11 +641,17 @@
     const cleanSlug = toStringValue(car.slug);
     const cleanStatus = toStringValue(desiredStatus || car.status).toLowerCase();
     const cleanAvailability = normalizeAvailabilityStatus(desiredAvailability || car.availabilityStatus);
+    const cleanRentalDays = cleanAvailability === "rented"
+      ? toInteger(desiredRentalDays !== null && desiredRentalDays !== undefined ? desiredRentalDays : car.rentalDays, null)
+      : null;
 
     if (cleanStatus !== "published" || cleanAvailability !== "rented") {
       delete nextOverrides[cleanSlug];
     } else {
-      nextOverrides[cleanSlug] = "rented";
+      nextOverrides[cleanSlug] = {
+        availabilityStatus: "rented",
+        rentalDays: cleanRentalDays,
+      };
     }
 
     const changed = JSON.stringify(nextOverrides) !== JSON.stringify(overrides);
@@ -645,6 +663,7 @@
       ...car,
       status: cleanStatus || car.status,
       availabilityStatus: cleanAvailability,
+      rentalDays: cleanRentalDays,
     }]);
     return nextCar || car;
   };
@@ -1155,12 +1174,14 @@
           slug: serialized.slug,
           status: serialized.status,
           availabilityStatus: serialized.availability_status,
+          rentalDays: serialized.rental_days,
         }
       : null);
     return persistLegacyCarStatus(
       fallbackCar,
       serialized.availability_status,
-      serialized.status
+      serialized.status,
+      serialized.rental_days
     );
   };
 
@@ -1181,12 +1202,14 @@
           slug: serialized.slug,
           status: serialized.status,
           availabilityStatus: serialized.availability_status,
+          rentalDays: serialized.rental_days,
         }
       : null);
     return persistLegacyCarStatus(
       fallbackCar,
       serialized.availability_status,
-      serialized.status
+      serialized.status,
+      serialized.rental_days
     );
   };
 
@@ -1207,6 +1230,7 @@
       else if (key === "status") payload.status = serialized.status;
       else if (key === "stockCount") payload.stock_count = serialized.stock_count;
       else if (key === "availabilityStatus") payload.availability_status = serialized.availability_status;
+      else if (key === "rentalDays") payload.rental_days = serialized.rental_days;
       else if (key === "category") payload.category = serialized.category;
       else if (key === "city") payload.city = serialized.city;
       else if (key === "color") payload.color = serialized.color;
@@ -1236,12 +1260,14 @@
           slug: serialized.slug,
           status: payload.status || serialized.status,
           availabilityStatus: payload.availability_status || serialized.availability_status,
+          rentalDays: "rentalDays" in normalized ? serialized.rental_days : null,
         }
       : null);
     return persistLegacyCarStatus(
       fallbackCar,
       "availabilityStatus" in normalized ? serialized.availability_status : (savedCar ? savedCar.availabilityStatus : "available"),
-      "status" in normalized ? serialized.status : (savedCar ? savedCar.status : "published")
+      "status" in normalized ? serialized.status : (savedCar ? savedCar.status : "published"),
+      "rentalDays" in normalized ? serialized.rental_days : (savedCar ? savedCar.rentalDays : null)
     );
   };
 

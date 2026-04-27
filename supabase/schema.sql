@@ -29,7 +29,8 @@ create table if not exists public.cars (
   status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
   stock_count integer not null default 1,
   availability_status text not null default 'available' check (availability_status in ('available', 'rented', 'unavailable')),
-  category text not null default 'sedan',
+  rental_days integer,
+  category text not null default 'economy',
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -40,10 +41,14 @@ create table if not exists public.cars (
 
 alter table public.cars
   add column if not exists stock_count integer not null default 1,
-  add column if not exists availability_status text not null default 'available';
+  add column if not exists availability_status text not null default 'available',
+  add column if not exists rental_days integer;
 
 alter table public.cars
   alter column city set default 'Bakı';
+
+alter table public.cars
+  alter column category set default 'economy';
 
 do $$
 begin
@@ -66,6 +71,17 @@ begin
     alter table public.cars
       add constraint cars_availability_status_check
       check (availability_status in ('available', 'rented', 'unavailable'));
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'cars_rental_days_check'
+      and conrelid = 'public.cars'::regclass
+  ) then
+    alter table public.cars
+      add constraint cars_rental_days_check
+      check (rental_days is null or rental_days >= 1);
   end if;
 end
 $$;

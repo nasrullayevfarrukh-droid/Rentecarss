@@ -45,9 +45,9 @@
     },
   };
   const CATEGORY_LABELS = {
-    az: { economy: "Ekonom", sedan: "Sedan", suv: "SUV", premium: "Premium", minivan: "Minivan", model: "Model" },
-    ru: { economy: "Эконом", sedan: "Седан", suv: "SUV", premium: "Премиум", minivan: "Минивэн", model: "Модель" },
-    en: { economy: "Economy", sedan: "Sedan", suv: "SUV", premium: "Premium", minivan: "Minivan", model: "Model" },
+    az: { economy: "Ekonom", comfort: "Komfort", sedan: "Komfort", suv: "SUV", premium: "Premium", sport: "Sport", minivan: "Minivan", model: "Model" },
+    ru: { economy: "Эконом", comfort: "Комфорт", sedan: "Комфорт", suv: "SUV", premium: "Премиум", sport: "Спорт", minivan: "Минивэн", model: "Модель" },
+    en: { economy: "Economy", comfort: "Comfort", sedan: "Comfort", suv: "SUV", premium: "Premium", sport: "Sport", minivan: "Minivan", model: "Model" },
   };
   const LOCALES = {
     az: {
@@ -524,6 +524,27 @@
     const state = resolveAvailabilityState(car);
     if (state === "unavailable") return getAvailabilityLabel(state);
     return getAvailabilityLabel(state);
+  };
+
+  const getAvailabilityBadgeDisplayText = (car) => {
+    const state = resolveAvailabilityState(car);
+    if (state === "available") {
+      if (currentLocale === "az") return "Aktiv";
+      return getAvailabilityCopy().available || "Available";
+    }
+    if (state === "rented") {
+      const days = Number(car && car.rentalDays);
+      if (Number.isFinite(days) && days > 0) {
+        const cleanDays = Math.trunc(days);
+        if (currentLocale === "az") return `${cleanDays} gün icarədə`;
+        if (currentLocale === "ru") return `${cleanDays} дн. в аренде`;
+        return `${cleanDays} days rented`;
+      }
+      if (currentLocale === "az") return "İcarədə";
+      return getAvailabilityCopy().rented || "Rented";
+    }
+    if (currentLocale === "az") return "Arxiv";
+    return getAvailabilityCopy().unavailable || "Unavailable";
   };
 
   const getReservationActionCopy = (key) => {
@@ -1023,7 +1044,7 @@
 
   const buildCarCard = (car) => {
     const availabilityState = resolveAvailabilityState(car);
-    const availabilityBadgeText = getAvailabilityBadgeText(car);
+    const availabilityBadgeText = getAvailabilityBadgeDisplayText(car);
     const reservable = isCarReservable(car);
     const actionLabel = reservable
       ? localeCopy("card.reserve")
@@ -1246,8 +1267,7 @@
       renderGrid(grid, [], empty, localeCopy("messages.carsError"));
       return;
     }
-    const featured = publicCars.filter((car) => car.featured);
-    renderGrid(grid, (featured.length ? featured : publicCars).slice(0, 6), empty, localeCopy("fleet.noneVisible"));
+    renderGrid(grid, publicCars, empty, localeCopy("fleet.noneVisible"));
     const trust = qsa("[data-home-hero-trust-item]");
     if (trust[1]) {
       const value = qs("strong", trust[1]);
@@ -1393,18 +1413,112 @@
     });
   };
 
-  const setVehicleVisual = (node, car) => {
+  const getCarMediaImages = (car) => {
+    const seen = new Set();
+    return [car.coverImageUrl, ...(Array.isArray(car.galleryImages) ? car.galleryImages : [])]
+      .map((value) => String(value || "").trim())
+      .filter((url) => {
+        if (!url || seen.has(url)) return false;
+        seen.add(url);
+        return true;
+      });
+  };
+
+  const getGalleryItemClassName = (index, total) => {
+    if (total < 4) return "vehicle-gallery__item";
+    return index === 0 || (index + 1) % 5 === 0
+      ? "vehicle-gallery__item vehicle-gallery__item--wide"
+      : "vehicle-gallery__item";
+  };
+
+  const setVehicleVisual = (node, car, images = []) => {
     if (!node) return;
     node.setAttribute("data-model", car.title);
     const availabilityState = resolveAvailabilityState(car);
-    const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getAvailabilityBadgeText(car))}</span>`;
-    if (car.coverImageUrl) {
-      node.style.backgroundImage = `linear-gradient(180deg, rgba(255,255,255,0.04), rgba(17,19,24,0.24)), url("${car.coverImageUrl.replace(/"/g, '\\"')}")`;
-      node.innerHTML = badgeMarkup;
-    } else {
-      node.style.backgroundImage = "linear-gradient(135deg, rgba(255,107,60,0.18), rgba(255,81,71,0.12))";
-      node.innerHTML = `${badgeMarkup}<span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>`;
+    const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getAvailabilityBadgeDisplayText(car))}</span>`;
+    node.style.backgroundImage = "none";
+    if (!images.length) {
+      node.innerHTML = `
+        <div class="vehicle-visual__stage">
+          ${badgeMarkup}
+          <span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>
+        </div>
+      `;
+      return { bindGallery: () => {}, setImage: () => {} };
     }
+
+    node.innerHTML = `
+      <div class="vehicle-visual__stage">
+        ${badgeMarkup}
+        <button class="vehicle-visual__nav vehicle-visual__nav--prev" type="button" data-vehicle-nav="prev" aria-label="Previous image"${images.length > 1 ? "" : " hidden"}>&lsaquo;</button>
+        <img class="vehicle-visual__image" data-vehicle-stage-image src="${escapeHtml(images[0])}" alt="${escapeHtml(car.title)}" loading="eager" />
+        <button class="vehicle-visual__nav vehicle-visual__nav--next" type="button" data-vehicle-nav="next" aria-label="Next image"${images.length > 1 ? "" : " hidden"}>&rsaquo;</button>
+        <div class="vehicle-visual__overlay">
+          <span class="vehicle-visual__caption">${escapeHtml(car.title)}</span>
+          <span class="vehicle-visual__count" data-vehicle-count>${String(1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</span>
+        </div>
+      </div>
+      ${images.length > 1 ? `
+        <div class="vehicle-visual__thumbs">
+          ${images.map((url, index) => `
+            <button class="vehicle-visual__thumb${index === 0 ? " is-active" : ""}" type="button" data-vehicle-thumb="${index}" aria-label="${escapeHtml(`${car.title} ${index + 1}`)}">
+              <img src="${escapeHtml(url)}" alt="${escapeHtml(`${car.title} ${index + 1}`)}" loading="lazy" />
+            </button>
+          `).join("")}
+        </div>
+      ` : ""}
+    `;
+
+    const stageImage = qs("[data-vehicle-stage-image]", node);
+    const countNode = qs("[data-vehicle-count]", node);
+    const thumbButtons = qsa("[data-vehicle-thumb]", node);
+    const navPrev = qs('[data-vehicle-nav="prev"]', node);
+    const navNext = qs('[data-vehicle-nav="next"]', node);
+    let galleryButtons = [];
+    let activeIndex = 0;
+
+    const syncSelections = () => {
+      thumbButtons.forEach((button) => {
+        button.classList.toggle("is-active", Number(button.dataset.vehicleThumb) === activeIndex);
+      });
+      galleryButtons.forEach((button) => {
+        button.classList.toggle("is-active", Number(button.dataset.galleryIndex) === activeIndex);
+      });
+    };
+
+    const setImage = (nextIndex) => {
+      if (!stageImage || !images.length) return;
+      activeIndex = (nextIndex + images.length) % images.length;
+      stageImage.style.opacity = "0.62";
+      stageImage.src = images[activeIndex];
+      stageImage.alt = `${car.title} ${activeIndex + 1}`;
+      const restoreOpacity = () => { stageImage.style.opacity = "1"; };
+      if (stageImage.complete) requestAnimationFrame(restoreOpacity);
+      else stageImage.addEventListener("load", restoreOpacity, { once: true });
+      if (countNode) countNode.textContent = `${String(activeIndex + 1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}`;
+      syncSelections();
+    };
+
+    thumbButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setImage(Number(button.dataset.vehicleThumb));
+      });
+    });
+    if (navPrev) navPrev.addEventListener("click", () => setImage(activeIndex - 1));
+    if (navNext) navNext.addEventListener("click", () => setImage(activeIndex + 1));
+
+    return {
+      bindGallery: (container) => {
+        galleryButtons = qsa("[data-gallery-index]", container);
+        galleryButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            setImage(Number(button.dataset.galleryIndex));
+          });
+        });
+        syncSelections();
+      },
+      setImage,
+    };
   };
 
   const renderCarDetail = async () => {
@@ -1450,13 +1564,15 @@
     const gallery = qs("[data-car-gallery]");
     const gallerySection = qs("[data-car-gallery-section]");
 
+    const images = getCarMediaImages(car);
+
     if (eyebrow) eyebrow.textContent = car.featured ? carCopy.featuredEyebrow : getCategoryLabel(car.category);
     if (title) title.textContent = car.year ? `${car.title} ${car.year}` : car.title;
     if (price) price.textContent = formatPrice(car.dailyPrice);
     if (summary) summary.textContent = getCarSummary(car);
     if (descriptionTitle) descriptionTitle.textContent = carCopy.aboutTitle;
     if (description) description.textContent = car.description || getCarSummary(car);
-    setVehicleVisual(visual, car);
+    const mediaController = setVehicleVisual(visual, car, images);
 
     const chipValues = [
       [carCopy.specLabels[0], formatPrice(car.dailyPrice)],
@@ -1504,15 +1620,17 @@
       if (titleNode) titleNode.textContent = carCopy.galleryTitle;
     }
     if (gallery && gallerySection) {
-      const images = [car.coverImageUrl, ...car.galleryImages].filter(Boolean);
       if (!images.length) gallerySection.hidden = true;
       else {
         gallerySection.hidden = false;
-        gallery.innerHTML = images.map((url) => `
-          <div class="vehicle-gallery__item">
-            <img src="${escapeHtml(url)}" alt="${escapeHtml(car.title)}" loading="lazy" />
-          </div>
+        gallery.innerHTML = images.map((url, index) => `
+          <article class="${getGalleryItemClassName(index, images.length)}">
+            <button class="vehicle-gallery__button" type="button" data-gallery-index="${index}" aria-label="${escapeHtml(`${car.title} ${index + 1}`)}">
+              <img src="${escapeHtml(url)}" alt="${escapeHtml(`${car.title} ${index + 1}`)}" loading="lazy" />
+            </button>
+          </article>
         `).join("");
+        mediaController.bindGallery(gallery);
       }
     }
   };

@@ -10,9 +10,11 @@
   const ROUTES = ["dashboard", "cars", "reservations", "media", "settings"];
   const CATEGORY_LABELS = {
     economy: "Ekonom",
-    sedan: "Sedan",
+    comfort: "Komfort",
+    sedan: "Komfort",
     suv: "SUV",
     premium: "Premium",
+    sport: "Sport",
     minivan: "Minivan",
   };
   const STATUS_LABELS = {
@@ -132,6 +134,19 @@
 
   const getAvailabilityLabel = (value) => AVAILABILITY_LABELS[resolveAvailabilityStatus(value)] || "Aktivdir";
 
+  const getRentedDaysLabel = (value) => {
+    const days = Number(value);
+    if (!Number.isFinite(days) || days <= 0) return "İcarədədir";
+    return `${Math.trunc(days)} gün icarədə`;
+  };
+
+  const getAvailabilityText = (car) => {
+    const state = resolveAvailabilityStatus(car && car.availabilityStatus);
+    if (state === "rented") return getRentedDaysLabel(car && car.rentalDays);
+    if (state === "unavailable") return CAR_UI_STATUS_LABELS.archived;
+    return "Aktivdir";
+  };
+
   const getAvailabilityBadgeClass = (value) => (
     AVAILABILITY_BADGE_CLASSES[resolveAvailabilityStatus(value)]
     || "admin-badge admin-badge--available"
@@ -235,6 +250,8 @@
     refs.carDialogTitle = qs("[data-car-dialog-title]");
     refs.carDialogMode = qs("[data-car-dialog-mode]");
     refs.carFeedback = qs("[data-car-feedback]");
+    refs.rentalDaysField = qs("[data-rental-days-field]");
+    refs.rentalDaysInput = refs.carForm ? refs.carForm.elements.namedItem("rentalDays") : null;
     refs.coverInput = qs("[data-cover-input]");
     refs.galleryInput = qs("[data-gallery-input]");
     refs.coverPreview = qs("[data-cover-preview]");
@@ -266,6 +283,16 @@
     refs.carFeedback.textContent = message;
     refs.carFeedback.classList.remove("is-success", "is-error");
     if (tone) refs.carFeedback.classList.add(tone);
+  };
+
+  const syncRentalDaysField = () => {
+    if (!refs.carForm || !refs.rentalDaysField || !refs.rentalDaysInput) return;
+    const statusField = refs.carForm.elements.namedItem("displayStatus");
+    const status = String(statusField ? statusField.value || "active" : "active").trim();
+    const show = status === "rented";
+    refs.rentalDaysField.hidden = !show;
+    refs.rentalDaysInput.required = show;
+    if (!show) refs.rentalDaysInput.value = "";
   };
 
   const setAppFeedback = (message = "", tone = "") => {
@@ -340,7 +367,7 @@
       const uiStatus = getCarUiStatus(car);
       const availabilityLabel = uiStatus === "archived"
         ? CAR_UI_STATUS_LABELS.archived
-        : getAvailabilityLabel(car.availabilityStatus);
+        : getAvailabilityText(car);
       const availabilityBadgeClass = uiStatus === "archived"
         ? getStatusClass("archived")
         : getAvailabilityBadgeClass(car.availabilityStatus);
@@ -510,7 +537,7 @@
       brand: car ? car.brand : "",
       model: car ? car.model : "",
       year: car && car.year ? car.year : "",
-      category: car ? car.category : "sedan",
+      category: car ? car.category : "economy",
       city: car ? formatCityLabel(car.city) : "Bakı",
       color: car ? car.color : "",
       dailyPrice: car && car.dailyPrice !== null ? car.dailyPrice : "",
@@ -519,6 +546,7 @@
       fuelType: car ? car.fuelType : "",
       seats: car && car.seats ? car.seats : "",
       displayStatus: car ? getCarUiStatus(car) : "active",
+      rentalDays: car && car.rentalDays ? car.rentalDays : "",
       summary: car ? car.summary : "",
       description: car ? car.description : "",
       featuresText: car ? car.features.join(", ") : "",
@@ -536,6 +564,7 @@
     });
 
     state.draft = createDraft(car);
+    syncRentalDaysField();
     setInlineFeedback("");
     renderDraftAssets();
   };
@@ -569,7 +598,7 @@
       brand: String(formData.get("brand") || "").trim(),
       model: String(formData.get("model") || "").trim(),
       year: String(formData.get("year") || "").trim(),
-      category: String(formData.get("category") || "sedan").trim(),
+      category: String(formData.get("category") || "economy").trim(),
       city: formatCityLabel(String(formData.get("city") || "Bakı").trim()),
       color: String(formData.get("color") || "").trim(),
       dailyPrice: String(formData.get("dailyPrice") || "").trim(),
@@ -577,6 +606,12 @@
       transmission: String(formData.get("transmission") || "").trim(),
       fuelType: String(formData.get("fuelType") || "").trim(),
       seats: String(formData.get("seats") || "").trim(),
+      rentalDays: (() => {
+        const displayStatus = String(formData.get("displayStatus") || "active").trim();
+        if (displayStatus !== "rented") return null;
+        const numeric = Number(String(formData.get("rentalDays") || "").trim());
+        return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : null;
+      })(),
       availabilityStatus: (() => {
         const displayStatus = String(formData.get("displayStatus") || "active").trim();
         if (displayStatus === "rented") return "rented";
@@ -623,6 +658,12 @@
 
     if (!values.title || !values.brand || !values.model || !values.dailyPrice || !values.transmission || !values.fuelType || !values.seats) {
       setInlineFeedback("Başlıq, marka, model, gündəlik qiymət, transmissiya, yanacaq və oturacaq məlumatı mütləqdir.", "is-error");
+      return;
+    }
+
+    if (values.availabilityStatus === "rented" && (!values.rentalDays || values.rentalDays < 1)) {
+      setInlineFeedback("İcarədə olan maşın üçün neçə günlük icarədə olduğunu yazın.", "is-error");
+      if (refs.rentalDaysInput) refs.rentalDaysInput.focus();
       return;
     }
 
@@ -1097,6 +1138,14 @@
 
     if (refs.carForm) {
       refs.carForm.addEventListener("submit", saveCar);
+      refs.carForm.addEventListener("change", (event) => {
+        if (event.target && event.target.name === "displayStatus") {
+          syncRentalDaysField();
+          if (event.target.value === "rented" && refs.rentalDaysInput && !refs.rentalDaysInput.value) {
+            refs.rentalDaysInput.focus();
+          }
+        }
+      });
     }
 
     document.addEventListener("change", async (event) => {
@@ -1104,13 +1153,30 @@
       if (uiStatusSelect) {
         const car = state.cars.find((item) => item.id === uiStatusSelect.dataset.id);
         if (!car) return;
+        const previousStatus = getCarUiStatus(car);
 
         try {
           const uiStatus = uiStatusSelect.value;
+          const rentalDays = uiStatus === "rented"
+            ? (() => {
+                const response = window.prompt("Neçə gün icarədədir?", car.rentalDays ? String(car.rentalDays) : "1");
+                if (response === null) return null;
+                const numeric = Number(String(response).trim());
+                if (!Number.isFinite(numeric) || numeric <= 0) {
+                  throw new Error("İcarə gün sayı 1 və ya daha böyük olmalıdır.");
+                }
+                return Math.trunc(numeric);
+              })()
+            : null;
+          if (uiStatus === "rented" && rentalDays === null) {
+            uiStatusSelect.value = getCarUiStatus(car);
+            return;
+          }
           await Data.updateCar(car.id, {
             ...car,
             availabilityStatus: uiStatus === "rented" ? "rented" : (uiStatus === "archived" ? "unavailable" : "available"),
             status: uiStatus === "archived" ? "archived" : "published",
+            rentalDays,
             coverImageUrl: car.coverImageUrl,
             galleryImages: car.galleryImages,
             dailyPrice: car.dailyPrice,
@@ -1121,6 +1187,7 @@
           await loadData();
           notifyPublicSiteChange("cars");
         } catch (error) {
+          uiStatusSelect.value = previousStatus;
           alert(error.message || "Maşın vəziyyəti yenilənmədi.");
         }
         return;

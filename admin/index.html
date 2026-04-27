@@ -137,9 +137,10 @@
                 <select data-cars-category>
                   <option value="all">Bütün kateqoriyalar</option>
                   <option value="economy">Ekonom</option>
-                  <option value="sedan">Sedan</option>
+                  <option value="comfort">Komfort</option>
                   <option value="suv">SUV</option>
                   <option value="premium">Premium</option>
+                  <option value="sport">Sport</option>
                   <option value="minivan">Minivan</option>
                 </select>
               </label>
@@ -507,9 +508,10 @@
               <span>Kateqoriya</span>
               <select name="category">
                 <option value="economy">Ekonom</option>
-                <option value="sedan">Sedan</option>
+                <option value="comfort">Komfort</option>
                 <option value="suv">SUV</option>
                 <option value="premium">Premium</option>
+                <option value="sport">Sport</option>
                 <option value="minivan">Minivan</option>
               </select>
             </label>
@@ -548,6 +550,11 @@
                 <option value="rented">İcarədədir</option>
                 <option value="archived">Arxiv</option>
               </select>
+            </label>
+            <label class="admin-field" data-rental-days-field hidden>
+              <span>Neçə gün icarədədir</span>
+              <input type="number" name="rentalDays" min="1" max="365" step="1" placeholder="Məsələn 3" />
+              <small>Yalnız "İcarədədir" seçiləndə doldurulur.</small>
             </label>
             <label class="admin-field admin-field--full">
               <span>Qısa xülasə</span>
