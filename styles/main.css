@@ -2781,6 +2781,31 @@ body[data-theme="dark"] .menu-toggle {
   line-height: 1.45;
 }
 
+.fleet-card__notice--available {
+  border-color: rgba(31, 163, 106, 0.18);
+  background: rgba(236, 250, 242, 0.96);
+  color: #1f8f60;
+}
+
+.fleet-card__notice--upcoming,
+.fleet-card__notice--reserved {
+  border-color: rgba(255, 167, 38, 0.18);
+  background: rgba(255, 248, 235, 0.92);
+  color: #8a5a13;
+}
+
+.fleet-card__notice--rented {
+  border-color: rgba(106, 109, 118, 0.18);
+  background: rgba(243, 244, 247, 0.92);
+  color: #5d616b;
+}
+
+.fleet-card__notice--expired {
+  border-color: rgba(217, 97, 85, 0.18);
+  background: rgba(255, 240, 238, 0.95);
+  color: #bc5449;
+}
+
 .vehicle-rental-state {
   display: grid;
   gap: 14px;
@@ -2923,6 +2948,31 @@ body[data-theme="dark"] .fleet-card__notice,
 body[data-theme="dark"] .vehicle-rental-state {
   background: rgba(28, 22, 25, 0.96);
   border-color: rgba(255, 107, 60, 0.16);
+}
+
+body[data-theme="dark"] .fleet-card__notice--available {
+  background: rgba(19, 46, 33, 0.92);
+  border-color: rgba(48, 182, 122, 0.2);
+  color: #6ce0a6;
+}
+
+body[data-theme="dark"] .fleet-card__notice--upcoming,
+body[data-theme="dark"] .fleet-card__notice--reserved {
+  background: rgba(55, 39, 14, 0.92);
+  border-color: rgba(255, 184, 77, 0.2);
+  color: #ffca71;
+}
+
+body[data-theme="dark"] .fleet-card__notice--rented {
+  background: rgba(38, 41, 48, 0.94);
+  border-color: rgba(134, 138, 148, 0.22);
+  color: #d5d8de;
+}
+
+body[data-theme="dark"] .fleet-card__notice--expired {
+  background: rgba(66, 28, 28, 0.92);
+  border-color: rgba(230, 113, 102, 0.22);
+  color: #ff9b90;
 }
 
 body[data-theme="dark"] .vehicle-rental-state__grid div {

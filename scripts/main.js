@@ -589,6 +589,38 @@
 
   const getScheduleAvailabilityBadgeText = (summaryOrCar) => getScheduleAvailabilityLabel(summaryOrCar);
 
+  const getCarScheduleNotice = (summary) => {
+    const state = resolveAvailabilityState(summary);
+    if (state === "rented" && summary && summary.remainingMs > 0) {
+      return {
+        tone: "rented",
+        text: `Kirada • ${formatRemainingTime(summary.remainingMs)}`,
+      };
+    }
+    if (state === "reserved" && summary && summary.activeReservation) {
+      return {
+        tone: "reserved",
+        text: `Rezerve • ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+      };
+    }
+    if (state === "available" && summary && summary.upcomingReservation) {
+      return {
+        tone: "upcoming",
+        text: `Yaklaşan rezervasyon: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
+      };
+    }
+    if (state === "expired" && summary && summary.latestExpiredReservation) {
+      return {
+        tone: "expired",
+        text: `Süresi doldu • ${formatReservationDateTime(summary.latestExpiredReservation.endDateTime)}`,
+      };
+    }
+    return {
+      tone: "available",
+      text: `Status: ${getScheduleAvailabilityBadgeText(summary)}`,
+    };
+  };
+
   const getUpcomingReservationText = (summary) => (
     summary && summary.currentStatus === "available" && summary.upcomingReservation
       ? `Yaklaşan rezervasyon: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`
@@ -1092,7 +1124,7 @@
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
     const availabilityBadgeText = getScheduleAvailabilityBadgeText(availabilitySummary);
-    const upcomingReservationText = getUpcomingReservationText(availabilitySummary);
+    const scheduleNotice = getCarScheduleNotice(availabilitySummary);
     const reservable = isCarReservable(car);
     const actionLabel = reservable
       ? localeCopy("card.reserve")
@@ -1127,7 +1159,7 @@
               <strong>${escapeHtml(car.title)}</strong>
               <span>${escapeHtml(formatPrice(car.dailyPrice))}</span>
             </div>
-            ${upcomingReservationText ? `<div class="fleet-card__notice">${escapeHtml(upcomingReservationText)}</div>` : ""}
+            <div class="fleet-card__notice fleet-card__notice--${escapeHtml(scheduleNotice.tone)}">${escapeHtml(scheduleNotice.text)}</div>
             <ul class="fleet-card__specs">
               <li>${escapeHtml(formatSeatCount(car.seats))}</li>
               <li>${escapeHtml(car.fuelType || localeCopy("card.fuelMissing"))}</li>
