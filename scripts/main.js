@@ -627,6 +627,59 @@
       : ""
   );
 
+  const getReservationGlanceData = (summary) => {
+    const state = resolveAvailabilityState(summary);
+    if (state === "rented" && summary && summary.activeReservation) {
+      return {
+        tone: "rented",
+        eyebrow: "Kiralama durumu",
+        primary: formatRemainingTime(summary.remainingMs),
+        secondary: `Bitiş ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+      };
+    }
+    if (state === "reserved" && summary && summary.activeReservation) {
+      return {
+        tone: "reserved",
+        eyebrow: "Rezerv zamanı",
+        primary: formatReservationDateTime(summary.activeReservation.startDateTime),
+        secondary: `Bitiş ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+      };
+    }
+    if (state === "available" && summary && summary.upcomingReservation) {
+      return {
+        tone: "upcoming",
+        eyebrow: "Yaklaşan rezervasyon",
+        primary: formatReservationDateTime(summary.upcomingReservation.startDateTime),
+        secondary: "Şu anda müsait",
+      };
+    }
+    if (state === "expired" && summary && summary.latestExpiredReservation) {
+      return {
+        tone: "expired",
+        eyebrow: "Son bitiş",
+        primary: formatReservationDateTime(summary.latestExpiredReservation.endDateTime),
+        secondary: "Süresi doldu",
+      };
+    }
+    return {
+      tone: "available",
+      eyebrow: "Durum",
+      primary: "Şu anda müsait",
+      secondary: "Hemen rezerv edilebilir",
+    };
+  };
+
+  const buildReservationGlanceMarkup = (summary, className) => {
+    const info = getReservationGlanceData(summary);
+    return `
+      <div class="${className} ${className}--${escapeHtml(info.tone)}">
+        <span class="${className}__eyebrow">${escapeHtml(info.eyebrow)}</span>
+        <strong class="${className}__primary">${escapeHtml(info.primary)}</strong>
+        <span class="${className}__secondary">${escapeHtml(info.secondary)}</span>
+      </div>
+    `;
+  };
+
   const getReservationActionCopy = (key) => {
     const dictionary = {
       az: {
@@ -1125,6 +1178,7 @@
     const availabilityState = resolveAvailabilityState(availabilitySummary);
     const availabilityBadgeText = getScheduleAvailabilityBadgeText(availabilitySummary);
     const scheduleNotice = getCarScheduleNotice(availabilitySummary);
+    const scheduleGlanceMarkup = buildReservationGlanceMarkup(availabilitySummary, "fleet-card__schedule");
     const reservable = isCarReservable(car);
     const actionLabel = reservable
       ? localeCopy("card.reserve")
@@ -1153,13 +1207,13 @@
             <div class="fleet-card__image" ${imageStyle}>
               ${car.coverImageUrl ? "" : `<span class="fleet-card__placeholder">${escapeHtml(localeCopy("card.imagePending"))}</span>`}
             </div>
+            ${scheduleGlanceMarkup}
           </div>
           <div class="fleet-card__body">
             <div class="fleet-card__meta">
               <strong>${escapeHtml(car.title)}</strong>
               <span>${escapeHtml(formatPrice(car.dailyPrice))}</span>
             </div>
-            <div class="fleet-card__notice fleet-card__notice--${escapeHtml(scheduleNotice.tone)}">${escapeHtml(scheduleNotice.text)}</div>
             <ul class="fleet-card__specs">
               <li>${escapeHtml(formatSeatCount(car.seats))}</li>
               <li>${escapeHtml(car.fuelType || localeCopy("card.fuelMissing"))}</li>
@@ -1513,12 +1567,14 @@
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
     const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getScheduleAvailabilityBadgeText(availabilitySummary))}</span>`;
+    const scheduleGlanceMarkup = buildReservationGlanceMarkup(availabilitySummary, "vehicle-visual__schedule");
     node.style.backgroundImage = "none";
     if (!images.length) {
       node.innerHTML = `
         <div class="vehicle-visual__stage">
           ${badgeMarkup}
           <span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>
+          ${scheduleGlanceMarkup}
         </div>
       `;
       return { setImage: () => {} };
@@ -1531,7 +1587,10 @@
         <img class="vehicle-visual__image" data-vehicle-stage-image src="${escapeHtml(images[0])}" alt="${escapeHtml(car.title)}" loading="eager" />
         <button class="vehicle-visual__nav vehicle-visual__nav--next" type="button" data-vehicle-nav="next" aria-label="Next image"${images.length > 1 ? "" : " hidden"}>&rsaquo;</button>
         <div class="vehicle-visual__overlay">
-          <span class="vehicle-visual__caption">${escapeHtml(car.title)}</span>
+          <div class="vehicle-visual__copy">
+            <span class="vehicle-visual__caption">${escapeHtml(car.title)}</span>
+            ${scheduleGlanceMarkup}
+          </div>
           <span class="vehicle-visual__count" data-vehicle-count>${String(1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</span>
         </div>
       </div>

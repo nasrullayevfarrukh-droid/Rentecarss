@@ -761,6 +761,71 @@ h3,
   background: linear-gradient(180deg, rgba(16, 18, 24, 0.04), rgba(16, 18, 24, 0.18));
 }
 
+.fleet-card__schedule {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 14px;
+  z-index: 1;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(17, 18, 22, 0.2), rgba(17, 18, 22, 0.68));
+  color: #fff8f2;
+  box-shadow: 0 16px 30px rgba(12, 11, 14, 0.24);
+  backdrop-filter: blur(14px);
+  pointer-events: none;
+}
+
+.fleet-card__schedule__eyebrow,
+.vehicle-visual__schedule__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.fleet-card__schedule__primary,
+.vehicle-visual__schedule__primary {
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.fleet-card__schedule__secondary,
+.vehicle-visual__schedule__secondary {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 246, 240, 0.82);
+}
+
+.fleet-card__schedule--available,
+.vehicle-visual__schedule--available {
+  background: linear-gradient(180deg, rgba(17, 54, 37, 0.24), rgba(17, 54, 37, 0.68));
+}
+
+.fleet-card__schedule--reserved,
+.vehicle-visual__schedule--reserved,
+.fleet-card__schedule--upcoming,
+.vehicle-visual__schedule--upcoming {
+  background: linear-gradient(180deg, rgba(94, 56, 11, 0.22), rgba(94, 56, 11, 0.7));
+}
+
+.fleet-card__schedule--rented,
+.vehicle-visual__schedule--rented {
+  background: linear-gradient(180deg, rgba(42, 45, 52, 0.2), rgba(42, 45, 52, 0.76));
+}
+
+.fleet-card__schedule--expired,
+.vehicle-visual__schedule--expired {
+  background: linear-gradient(180deg, rgba(86, 27, 24, 0.22), rgba(86, 27, 24, 0.72));
+}
+
 .fleet-card__image--cerato {
   background-image:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(17, 19, 24, 0.2)),
@@ -1188,6 +1253,12 @@ h3,
   z-index: -1;
 }
 
+.vehicle-visual__copy {
+  display: grid;
+  gap: 10px;
+  max-width: min(100%, 420px);
+}
+
 .vehicle-visual__caption {
   display: inline-flex;
   align-items: center;
@@ -1199,6 +1270,19 @@ h3,
   font-size: 1.55rem;
   font-weight: 800;
   letter-spacing: -0.04em;
+  backdrop-filter: blur(14px);
+}
+
+.vehicle-visual__schedule {
+  display: grid;
+  gap: 5px;
+  width: min(100%, 320px);
+  padding: 13px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(17, 18, 22, 0.24), rgba(17, 18, 22, 0.72));
+  color: #fff8f2;
+  box-shadow: 0 16px 30px rgba(12, 11, 14, 0.2);
   backdrop-filter: blur(14px);
 }
 
@@ -3011,6 +3095,35 @@ body[data-theme="dark"] .vehicle-visual__thumb.is-active {
     right: 16px;
     max-width: calc(100% - 32px);
     font-size: 0.72rem;
+  }
+
+  .fleet-card__schedule {
+    left: 18px;
+    right: 18px;
+    bottom: 10px;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+
+  .fleet-card__schedule__primary,
+  .vehicle-visual__schedule__primary {
+    font-size: 0.88rem;
+  }
+
+  .fleet-card__schedule__secondary,
+  .vehicle-visual__schedule__secondary {
+    font-size: 0.72rem;
+  }
+
+  .vehicle-visual__copy {
+    max-width: calc(100% - 70px);
+  }
+
+  .vehicle-visual__schedule {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 16px;
   }
 
   .vehicle-actions {
