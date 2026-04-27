@@ -1198,8 +1198,7 @@ h3,
   display: grid;
   grid-template-columns: minmax(0, 1fr) 84px;
   gap: 14px;
-  align-items: stretch;
-  min-height: 360px;
+  align-items: start;
   border-radius: 24px;
   overflow: visible;
   background: transparent;
@@ -1212,7 +1211,7 @@ h3,
 .vehicle-visual__stage {
   position: relative;
   overflow: hidden;
-  min-height: 100%;
+  align-self: start;
   border-radius: 24px;
   border: 1px solid rgba(255, 107, 60, 0.14);
   background:
@@ -1223,9 +1222,7 @@ h3,
 
 .vehicle-visual__image {
   width: 100%;
-  height: 100%;
-  min-height: 360px;
-  max-height: 420px;
+  height: clamp(320px, 34vw, 430px);
   display: block;
   object-fit: cover;
   object-position: center;
@@ -1325,14 +1322,17 @@ h3,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
+  height: clamp(320px, 34vw, 430px);
+  overflow-y: auto;
+  padding-right: 4px;
+  align-self: start;
 }
 
 .vehicle-visual__thumb {
   position: relative;
-  flex: 1 1 0;
+  flex: 0 0 86px;
   overflow: hidden;
-  min-height: 68px;
+  min-height: 86px;
   padding: 0;
   border: 1px solid rgba(255, 107, 60, 0.14);
   border-radius: 18px;
@@ -3670,12 +3670,10 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
 @media (max-width: 980px) {
   .vehicle-visual {
     grid-template-columns: 1fr;
-    min-height: 0;
   }
 
   .vehicle-visual__image {
-    min-height: 300px;
-    max-height: 340px;
+    height: 320px;
   }
 
   .vehicle-visual__thumbs {
@@ -3683,12 +3681,15 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
     grid-auto-flow: column;
     grid-auto-columns: minmax(92px, 1fr);
     overflow-x: auto;
+    overflow-y: hidden;
     height: auto;
     padding-bottom: 4px;
+    padding-right: 0;
   }
 
   .vehicle-visual__thumb {
     min-height: 90px;
+    flex: 0 0 auto;
   }
 
 }
@@ -3699,8 +3700,7 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
   }
 
   .vehicle-visual__image {
-    min-height: 240px;
-    max-height: 280px;
+    height: 250px;
   }
 
   .vehicle-visual__nav {
