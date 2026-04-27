@@ -1168,12 +1168,12 @@ h3,
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 500px);
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .vehicle-summary {
   display: grid;
-  align-content: center;
+  align-content: start;
   gap: 16px;
 }
 
@@ -2792,7 +2792,7 @@ body[data-theme="dark"] .menu-toggle {
   text-transform: uppercase;
 }
 
-.vehicle-visual > .vehicle-status {
+.vehicle-visual__stage > .vehicle-status {
   position: absolute;
   top: 20px;
   right: 20px;
@@ -3047,7 +3047,7 @@ body[data-theme="dark"] .vehicle-visual__thumb.is-active {
     font-size: 0.62rem;
   }
 
-  .vehicle-visual > .vehicle-status {
+  .vehicle-visual__stage > .vehicle-status {
     top: 16px;
     right: 16px;
     max-width: calc(100% - 32px);
