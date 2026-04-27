@@ -921,8 +921,6 @@
     if (aboutTitle) aboutTitle.textContent = car.aboutTitle;
     setNodesText(qsa(".spec-chip span"), car.specLabels || []);
     setNodesText(qsa(".vehicle-cta-group .button"), [localeCopy("nav.reserve"), car.backToFleet]);
-    const galleryTitle = qs("[data-car-gallery-section] h3");
-    if (galleryTitle) galleryTitle.textContent = car.galleryTitle;
   };
 
   const applyStaticTranslations = () => {
@@ -1477,13 +1475,6 @@
       });
   };
 
-  const getGalleryItemClassName = (index, total) => {
-    if (total < 4) return "vehicle-gallery__item";
-    return index === 0 || (index + 1) % 5 === 0
-      ? "vehicle-gallery__item vehicle-gallery__item--wide"
-      : "vehicle-gallery__item";
-  };
-
   const setVehicleVisual = (node, car, images = []) => {
     if (!node) return;
     node.setAttribute("data-model", car.title);
@@ -1498,7 +1489,7 @@
           <span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>
         </div>
       `;
-      return { bindGallery: () => {}, setImage: () => {} };
+      return { setImage: () => {} };
     }
 
     node.innerHTML = `
@@ -1528,15 +1519,11 @@
     const thumbButtons = qsa("[data-vehicle-thumb]", node);
     const navPrev = qs('[data-vehicle-nav="prev"]', node);
     const navNext = qs('[data-vehicle-nav="next"]', node);
-    let galleryButtons = [];
     let activeIndex = 0;
 
     const syncSelections = () => {
       thumbButtons.forEach((button) => {
         button.classList.toggle("is-active", Number(button.dataset.vehicleThumb) === activeIndex);
-      });
-      galleryButtons.forEach((button) => {
-        button.classList.toggle("is-active", Number(button.dataset.galleryIndex) === activeIndex);
       });
     };
 
@@ -1561,18 +1548,7 @@
     if (navPrev) navPrev.addEventListener("click", () => setImage(activeIndex - 1));
     if (navNext) navNext.addEventListener("click", () => setImage(activeIndex + 1));
 
-    return {
-      bindGallery: (container) => {
-        galleryButtons = qsa("[data-gallery-index]", container);
-        galleryButtons.forEach((button) => {
-          button.addEventListener("click", () => {
-            setImage(Number(button.dataset.galleryIndex));
-          });
-        });
-        syncSelections();
-      },
-      setImage,
-    };
+    return { setImage };
   };
 
   const renderVehicleRentalState = (node, car) => {
@@ -1704,9 +1680,6 @@
     const description = qs("[data-car-description]") || qs(".vehicle-layout .content-card p");
     const features = qs("[data-car-features]");
     const rentalState = qs("[data-car-rental-state]");
-    const gallery = qs("[data-car-gallery]");
-    const gallerySection = qs("[data-car-gallery-section]");
-
     const images = getCarMediaImages(car);
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
@@ -1717,7 +1690,7 @@
     if (summary) summary.textContent = getCarSummary(car);
     if (descriptionTitle) descriptionTitle.textContent = carCopy.aboutTitle;
     if (description) description.textContent = car.description || getCarSummary(car);
-    const mediaController = setVehicleVisual(visual, car, images);
+    setVehicleVisual(visual, car, images);
     renderVehicleRentalState(rentalState, car);
 
     const chipValues = [
@@ -1760,9 +1733,6 @@
       const items = car.features.length ? car.features : [carCopy.featureFallback];
       features.innerHTML = items.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
     }
-
-    if (gallerySection) gallerySection.hidden = true;
-    if (gallery) gallery.innerHTML = "";
   };
 
   const showCarsErrorState = (message) => {
