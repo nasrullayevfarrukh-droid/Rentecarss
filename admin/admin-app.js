@@ -366,13 +366,19 @@
     Data.getCarReservationsSchemaMode && Data.getCarReservationsSchemaMode() === "missing"
   );
 
+  const isReservationFallbackLocalOnly = () => {
+    const reservationsMode = Data.getCarReservationsSchemaMode ? Data.getCarReservationsSchemaMode() : "";
+    const siteContentMode = Data.getSiteContentSchemaMode ? Data.getSiteContentSchemaMode() : "";
+    return reservationsMode !== "full" && siteContentMode === "fallback";
+  };
+
   const renderScheduleSchemaWarning = () => {
     if (!refs.scheduleSchemaWarning) return;
-    const missing = isCarReservationsSchemaMissing();
-    refs.scheduleSchemaWarning.hidden = !missing;
-    refs.scheduleSchemaWarning.classList.toggle("admin-schema-warning--soft", missing);
-    refs.scheduleSchemaWarning.textContent = missing
-      ? "Rezervasyon planlama cədvəli Supabase-də ayrıca qurulmayıb. Hazırda fallback rejimi aktivdir və save yenə işləyəcək. Tam production quruluşu üçün sonra `supabase/schema.sql` işlədin."
+    const localOnlyFallback = isReservationFallbackLocalOnly();
+    refs.scheduleSchemaWarning.hidden = !localOnlyFallback;
+    refs.scheduleSchemaWarning.classList.toggle("admin-schema-warning--soft", localOnlyFallback);
+    refs.scheduleSchemaWarning.textContent = localOnlyFallback
+      ? "Rezervasyon fallback-i hazırda yalnız bu brauzerdə saxlanır. Tam sabit işləməsi üçün `supabase/schema.sql` işlədin."
       : "";
   };
 
@@ -819,6 +825,7 @@
       await loadData();
       notifyPublicSiteChange("reservations");
       closeScheduleModal();
+      setAppFeedback("Rezervasyon / kiralama kaydı saxlanıldı.", "is-success");
     } catch (error) {
       setScheduleFeedback(error.message || "Rezervasyon kaydı kaydedilemedi.", "is-error");
     } finally {
@@ -1345,7 +1352,9 @@
 
     const carsLegacy = Data.getCarsSchemaMode && Data.getCarsSchemaMode() === "legacy";
     const siteContentFallback = Data.getSiteContentSchemaMode && Data.getSiteContentSchemaMode() === "fallback";
-    const carReservationsMissing = Data.getCarReservationsSchemaMode && Data.getCarReservationsSchemaMode() === "missing";
+    const carReservationsMode = Data.getCarReservationsSchemaMode ? Data.getCarReservationsSchemaMode() : "";
+    const carReservationsMissing = carReservationsMode === "missing";
+    const reservationFallbackLocalOnly = carReservationsMode !== "full" && siteContentFallback;
 
     if (carsLegacy && siteContentFallback) {
       setAppFeedback("Admin panel açıldı, amma Supabase-də `cars` yeni kolonları və `site_content` cədvəli yoxdur. Publish etməzdən əvvəl `supabase/schema.sql` işlədin.", "is-error");
@@ -1362,8 +1371,13 @@
       return;
     }
 
+    if (reservationFallbackLocalOnly) {
+      setAppFeedback("Rezervasyon sistemi hazırda yalnız local fallback ilə işləyir. Publish etməzdən əvvəl `supabase/schema.sql` işlədin.", "is-error");
+      return;
+    }
+
     if (carReservationsMissing) {
-      setAppFeedback("Rezervasyon cədvəli ayrıca qurulmayıb. Hazırda fallback rejimi aktivdir; save işləyir, amma tam production quruluşu üçün `supabase/schema.sql` işlədin.");
+      setAppFeedback("");
       return;
     }
 

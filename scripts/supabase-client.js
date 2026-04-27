@@ -460,6 +460,7 @@
       || message.includes("relation \"public.public_car_reservations\" does not exist")
       || message.includes("could not find the table 'public.car_reservations' in the schema cache")
       || message.includes("could not find the table 'public.public_car_reservations' in the schema cache")
+      || message.includes("rezervasyon planlama tablosu henüz kurulmamış")
     );
   };
 
@@ -1387,7 +1388,7 @@
       if (allowMissing) {
         return [];
       }
-      throw new Error("Rezervasyon planlama tablosu henüz kurulmamış. `supabase/schema.sql` dosyasını çalıştırın.");
+      throw error;
     }
   };
 
