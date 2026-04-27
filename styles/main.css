@@ -763,25 +763,26 @@ h3,
 
 .fleet-card__schedule {
   position: absolute;
-  left: 26px;
-  right: 26px;
-  bottom: 14px;
+  left: 16px;
+  right: auto;
+  bottom: 16px;
   z-index: 1;
   display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 18px;
+  gap: 2px;
+  width: min(220px, calc(100% - 32px));
+  padding: 10px 12px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: linear-gradient(180deg, rgba(17, 18, 22, 0.2), rgba(17, 18, 22, 0.68));
   color: #fff8f2;
-  box-shadow: 0 16px 30px rgba(12, 11, 14, 0.24);
+  box-shadow: 0 14px 24px rgba(12, 11, 14, 0.2);
   backdrop-filter: blur(14px);
   pointer-events: none;
 }
 
 .fleet-card__schedule__eyebrow,
 .vehicle-visual__schedule__eyebrow {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -790,17 +791,17 @@ h3,
 
 .fleet-card__schedule__primary,
 .vehicle-visual__schedule__primary {
-  font-size: 0.98rem;
+  font-size: 0.82rem;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .fleet-card__schedule__secondary,
 .vehicle-visual__schedule__secondary {
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.25;
   color: rgba(255, 246, 240, 0.82);
 }
 
@@ -1255,19 +1256,19 @@ h3,
 
 .vehicle-visual__copy {
   display: grid;
-  gap: 10px;
-  max-width: min(100%, 420px);
+  gap: 8px;
+  max-width: min(100%, 340px);
 }
 
 .vehicle-visual__caption {
   display: inline-flex;
   align-items: center;
-  min-height: 46px;
-  padding: 0 16px;
-  border-radius: 18px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 16px;
   background: rgba(18, 14, 17, 0.46);
   color: #fffaf7;
-  font-size: 1.55rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -0.04em;
   backdrop-filter: blur(14px);
@@ -1275,14 +1276,14 @@ h3,
 
 .vehicle-visual__schedule {
   display: grid;
-  gap: 5px;
-  width: min(100%, 320px);
-  padding: 13px 16px;
-  border-radius: 20px;
+  gap: 2px;
+  width: min(100%, 260px);
+  padding: 10px 12px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: linear-gradient(180deg, rgba(17, 18, 22, 0.24), rgba(17, 18, 22, 0.72));
   color: #fff8f2;
-  box-shadow: 0 16px 30px rgba(12, 11, 14, 0.2);
+  box-shadow: 0 14px 24px rgba(12, 11, 14, 0.18);
   backdrop-filter: blur(14px);
 }
 
@@ -2892,12 +2893,12 @@ body[data-theme="dark"] .menu-toggle {
 
 .vehicle-rental-state {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 24px;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 107, 60, 0.16);
   background: rgba(255, 248, 242, 0.94);
-  box-shadow: 0 12px 26px rgba(74, 35, 24, 0.08);
+  box-shadow: 0 10px 22px rgba(74, 35, 24, 0.08);
 }
 
 .vehicle-rental-state__head {
@@ -2908,7 +2909,7 @@ body[data-theme="dark"] .menu-toggle {
 }
 
 .vehicle-rental-state__head strong {
-  font-size: 1rem;
+  font-size: 0.98rem;
   letter-spacing: -0.02em;
 }
 
@@ -2944,33 +2945,12 @@ body[data-theme="dark"] .menu-toggle {
   color: #d96155;
 }
 
-.vehicle-rental-state__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.vehicle-rental-state__grid div {
-  display: grid;
-  gap: 6px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(255, 107, 60, 0.12);
-}
-
-.vehicle-rental-state__grid span {
+.vehicle-rental-state__summary {
+  margin: 0;
   color: var(--muted);
-  font-size: 0.8rem;
-}
-
-.vehicle-rental-state__grid strong {
-  font-size: 0.96rem;
+  font-size: 0.84rem;
+  font-weight: 600;
   line-height: 1.45;
-}
-
-.vehicle-rental-state__full {
-  grid-column: 1 / -1;
 }
 
 body[data-theme="dark"] .fleet-card__availability--available,

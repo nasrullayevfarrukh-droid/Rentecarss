@@ -589,83 +589,45 @@
 
   const getScheduleAvailabilityBadgeText = (summaryOrCar) => getScheduleAvailabilityLabel(summaryOrCar);
 
-  const getCarScheduleNotice = (summary) => {
-    const state = resolveAvailabilityState(summary);
-    if (state === "rented" && summary && summary.remainingMs > 0) {
-      return {
-        tone: "rented",
-        text: `Kirada • ${formatRemainingTime(summary.remainingMs)}`,
-      };
-    }
-    if (state === "reserved" && summary && summary.activeReservation) {
-      return {
-        tone: "reserved",
-        text: `Rezerve • ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
-      };
-    }
-    if (state === "available" && summary && summary.upcomingReservation) {
-      return {
-        tone: "upcoming",
-        text: `Yaklaşan rezervasyon: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
-      };
-    }
-    if (state === "expired" && summary && summary.latestExpiredReservation) {
-      return {
-        tone: "expired",
-        text: `Süresi doldu • ${formatReservationDateTime(summary.latestExpiredReservation.endDateTime)}`,
-      };
-    }
-    return {
-      tone: "available",
-      text: `Status: ${getScheduleAvailabilityBadgeText(summary)}`,
-    };
-  };
-
-  const getUpcomingReservationText = (summary) => (
-    summary && summary.currentStatus === "available" && summary.upcomingReservation
-      ? `Yaklaşan rezervasyon: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`
-      : ""
-  );
-
   const getReservationGlanceData = (summary) => {
     const state = resolveAvailabilityState(summary);
     if (state === "rented" && summary && summary.activeReservation) {
       return {
         tone: "rented",
-        eyebrow: "Kiralama durumu",
-        primary: formatRemainingTime(summary.remainingMs),
-        secondary: `Bitiş ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        eyebrow: "Kirada",
+        primary: `${formatReservationDateTime(summary.activeReservation.endDateTime)}'a kadar`,
+        secondary: `Kalan ${formatRemainingTime(summary.remainingMs)}`,
       };
     }
     if (state === "reserved" && summary && summary.activeReservation) {
       return {
         tone: "reserved",
-        eyebrow: "Rezerv zamanı",
-        primary: formatReservationDateTime(summary.activeReservation.startDateTime),
-        secondary: `Bitiş ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        eyebrow: "Rezerve",
+        primary: `${formatReservationDateTime(summary.activeReservation.endDateTime)}'a kadar`,
+        secondary: "Bu aralık doludur",
       };
     }
     if (state === "available" && summary && summary.upcomingReservation) {
       return {
         tone: "upcoming",
-        eyebrow: "Yaklaşan rezervasyon",
-        primary: formatReservationDateTime(summary.upcomingReservation.startDateTime),
-        secondary: "Şu anda müsait",
+        eyebrow: "Müsait",
+        primary: `${formatReservationDateTime(summary.upcomingReservation.startDateTime)}'a kadar`,
+        secondary: "Sonra rezerv başlayır",
       };
     }
     if (state === "expired" && summary && summary.latestExpiredReservation) {
       return {
         tone: "expired",
-        eyebrow: "Son bitiş",
+        eyebrow: "Süresi doldu",
         primary: formatReservationDateTime(summary.latestExpiredReservation.endDateTime),
-        secondary: "Süresi doldu",
+        secondary: "Yeni tarix girilə bilər",
       };
     }
     return {
       tone: "available",
-      eyebrow: "Durum",
-      primary: "Şu anda müsait",
-      secondary: "Hemen rezerv edilebilir",
+      eyebrow: "Müsait",
+      primary: "Hazırda boşdur",
+      secondary: "Rezerv açıqdır",
     };
   };
 
@@ -1177,7 +1139,6 @@
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
     const availabilityBadgeText = getScheduleAvailabilityBadgeText(availabilitySummary);
-    const scheduleNotice = getCarScheduleNotice(availabilitySummary);
     const scheduleGlanceMarkup = buildReservationGlanceMarkup(availabilitySummary, "fleet-card__schedule");
     const reservable = isCarReservable(car);
     const actionLabel = reservable
@@ -1655,73 +1616,20 @@
     const renderSnapshot = () => {
       const liveSummary = getCarAvailabilitySummary(car);
       const liveStatus = resolveAvailabilityState(liveSummary);
-
-      if (liveStatus === "rented" && liveSummary.activeReservation) {
-        node.hidden = false;
-        node.innerHTML = `
-          <div class="vehicle-rental-state__head">
-            <strong>Kiralama takvimi</strong>
-            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--rented">Kirada</span>
-          </div>
-          <div class="vehicle-rental-state__grid">
-            <div><span>Kiralama başlangıcı</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.startDateTime))}</strong></div>
-            <div><span>Kiralama bitişi</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.endDateTime))}</strong></div>
-            <div class="vehicle-rental-state__full"><span>Kalan süre</span><strong>${escapeHtml(formatRemainingTime(liveSummary.remainingMs))}</strong></div>
-          </div>
-        `;
-        return;
-      }
-
-      if (liveStatus === "reserved" && liveSummary.activeReservation) {
-        node.hidden = false;
-        node.innerHTML = `
-          <div class="vehicle-rental-state__head">
-            <strong>Rezervasyon takvimi</strong>
-            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--reserved">Rezerve</span>
-          </div>
-          <div class="vehicle-rental-state__grid">
-            <div><span>Rezervasyon başlangıcı</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.startDateTime))}</strong></div>
-            <div><span>Rezervasyon bitişi</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.activeReservation.endDateTime))}</strong></div>
-          </div>
-        `;
-        return;
-      }
-
-      if (liveSummary.upcomingReservation) {
-        node.hidden = false;
-        node.innerHTML = `
-          <div class="vehicle-rental-state__head">
-            <strong>Yaklaşan rezervasyon</strong>
-            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--available">Müsait</span>
-          </div>
-          <div class="vehicle-rental-state__grid">
-            <div class="vehicle-rental-state__full"><span>Başlangıç</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.upcomingReservation.startDateTime))}</strong></div>
-          </div>
-        `;
-        return;
-      }
-
-      if (liveStatus === "expired" && liveSummary.latestExpiredReservation) {
-        node.hidden = false;
-        node.innerHTML = `
-          <div class="vehicle-rental-state__head">
-            <strong>Son durum</strong>
-            <span class="vehicle-rental-state__badge vehicle-rental-state__badge--expired">Süresi doldu</span>
-          </div>
-          <div class="vehicle-rental-state__grid">
-            <div class="vehicle-rental-state__full"><span>Bitiş</span><strong>${escapeHtml(formatReservationDateTime(liveSummary.latestExpiredReservation.endDateTime))}</strong></div>
-          </div>
-        `;
-        return;
-      }
-
-      node.hidden = true;
-      node.innerHTML = "";
+      const info = getReservationGlanceData(liveSummary);
+      node.hidden = false;
+      node.innerHTML = `
+        <div class="vehicle-rental-state__head">
+          <strong>${escapeHtml(info.primary)}</strong>
+          <span class="vehicle-rental-state__badge vehicle-rental-state__badge--${escapeHtml(info.tone)}">${escapeHtml(info.eyebrow)}</span>
+        </div>
+        <p class="vehicle-rental-state__summary">${escapeHtml(info.secondary)}</p>
+      `;
     };
 
     renderSnapshot();
 
-    if (currentStatus === "rented") {
+    if (currentStatus === "rented" || (summary && summary.upcomingReservation)) {
       carDetailCountdownTimer = window.setInterval(renderSnapshot, 60000);
     }
   };
