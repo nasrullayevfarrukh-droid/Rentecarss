@@ -940,6 +940,12 @@ img {
   line-height: 1.65;
 }
 
+.admin-schema-warning--soft {
+  border-color: rgba(255, 168, 76, 0.22);
+  background: rgba(255, 168, 76, 0.09);
+  color: #d48a2a;
+}
+
 .admin-confirm-copy {
   line-height: 1.75;
 }
@@ -1812,6 +1818,12 @@ body[data-admin-theme="dark"] .admin-schema-warning {
   border-color: rgba(255, 122, 122, 0.24);
   background: rgba(255, 122, 122, 0.1);
   color: #ffd2d2;
+}
+
+body[data-admin-theme="dark"] .admin-schema-warning--soft {
+  border-color: rgba(255, 184, 92, 0.26);
+  background: rgba(255, 184, 92, 0.12);
+  color: #ffd28f;
 }
 
 @media (max-width: 720px) {

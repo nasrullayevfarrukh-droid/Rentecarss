@@ -366,24 +366,14 @@
     Data.getCarReservationsSchemaMode && Data.getCarReservationsSchemaMode() === "missing"
   );
 
-  const syncScheduleFormAvailability = () => {
-    if (!refs.scheduleForm) return;
-    const disabled = isCarReservationsSchemaMissing();
-    qsa("input, select, textarea, button", refs.scheduleForm).forEach((field) => {
-      if (field.type === "hidden") return;
-      if (field.hasAttribute("data-close-schedule-dialog")) return;
-      field.disabled = disabled;
-    });
-  };
-
   const renderScheduleSchemaWarning = () => {
     if (!refs.scheduleSchemaWarning) return;
     const missing = isCarReservationsSchemaMissing();
     refs.scheduleSchemaWarning.hidden = !missing;
+    refs.scheduleSchemaWarning.classList.toggle("admin-schema-warning--soft", missing);
     refs.scheduleSchemaWarning.textContent = missing
-      ? "Rezervasyon planlama tablosu Supabase-də qurulmayıb. Bu modal yalnız `supabase/schema.sql` işlədildikdən sonra aktiv save edəcək."
+      ? "Rezervasyon planlama cədvəli Supabase-də ayrıca qurulmayıb. Hazırda fallback rejimi aktivdir və save yenə işləyəcək. Tam production quruluşu üçün sonra `supabase/schema.sql` işlədin."
       : "";
-    syncScheduleFormAvailability();
   };
 
   const isoToLocalDateTimeInput = (value) => {
@@ -805,10 +795,6 @@
 
   const saveSchedule = async (event) => {
     event.preventDefault();
-    if (isCarReservationsSchemaMissing()) {
-      setScheduleFeedback("Əvvəl Supabase-də `supabase/schema.sql` işlədin. Cədvəl qurulmadan rezervasyon save olunmur.", "is-error");
-      return;
-    }
     const values = readScheduleFormValues();
     const submitButton = qs('button[type="submit"]', refs.scheduleForm);
     const originalLabel = submitButton ? submitButton.textContent : "";
@@ -1377,7 +1363,7 @@
     }
 
     if (carReservationsMissing) {
-      setAppFeedback("Rezervasyon planlama tablosu Supabase-də yoxdur. Saatlik kiralama sistemi üçün `supabase/schema.sql` işlədin.", "is-error");
+      setAppFeedback("Rezervasyon cədvəli ayrıca qurulmayıb. Hazırda fallback rejimi aktivdir; save işləyir, amma tam production quruluşu üçün `supabase/schema.sql` işlədin.");
       return;
     }
 
