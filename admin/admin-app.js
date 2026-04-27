@@ -314,6 +314,7 @@
     refs.scheduleDialogMode = qs("[data-schedule-dialog-mode]");
     refs.scheduleFeedback = qs("[data-schedule-feedback]");
     refs.schedulePreview = qs("[data-schedule-preview]");
+    refs.scheduleSchemaWarning = qs("[data-schedule-schema-warning]");
     refs.scheduleCarSelect = qs("[data-schedule-car-select]");
     refs.scheduleRecalculate = qs("[data-schedule-recalculate]");
     refs.scheduleStartInput = refs.scheduleForm ? refs.scheduleForm.elements.namedItem("startDateTime") : null;
@@ -359,6 +360,30 @@
     refs.scheduleFeedback.textContent = message;
     refs.scheduleFeedback.classList.remove("is-success", "is-error");
     if (tone) refs.scheduleFeedback.classList.add(tone);
+  };
+
+  const isCarReservationsSchemaMissing = () => Boolean(
+    Data.getCarReservationsSchemaMode && Data.getCarReservationsSchemaMode() === "missing"
+  );
+
+  const syncScheduleFormAvailability = () => {
+    if (!refs.scheduleForm) return;
+    const disabled = isCarReservationsSchemaMissing();
+    qsa("input, select, textarea, button", refs.scheduleForm).forEach((field) => {
+      if (field.type === "hidden") return;
+      if (field.hasAttribute("data-close-schedule-dialog")) return;
+      field.disabled = disabled;
+    });
+  };
+
+  const renderScheduleSchemaWarning = () => {
+    if (!refs.scheduleSchemaWarning) return;
+    const missing = isCarReservationsSchemaMissing();
+    refs.scheduleSchemaWarning.hidden = !missing;
+    refs.scheduleSchemaWarning.textContent = missing
+      ? "Rezervasyon planlama tablosu Supabase-də qurulmayıb. Bu modal yalnız `supabase/schema.sql` işlədildikdən sonra aktiv save edəcək."
+      : "";
+    syncScheduleFormAvailability();
   };
 
   const isoToLocalDateTimeInput = (value) => {
@@ -750,6 +775,7 @@
     if (refs.scheduleDialogMode) {
       refs.scheduleDialogMode.textContent = reservation ? "Düzenle" : "Yeni kayıt";
     }
+    renderScheduleSchemaWarning();
     if (refs.scheduleDialog) refs.scheduleDialog.hidden = false;
     document.body.classList.add("is-modal-open");
   };
@@ -779,6 +805,10 @@
 
   const saveSchedule = async (event) => {
     event.preventDefault();
+    if (isCarReservationsSchemaMissing()) {
+      setScheduleFeedback("Əvvəl Supabase-də `supabase/schema.sql` işlədin. Cədvəl qurulmadan rezervasyon save olunmur.", "is-error");
+      return;
+    }
     const values = readScheduleFormValues();
     const submitButton = qs('button[type="submit"]', refs.scheduleForm);
     const originalLabel = submitButton ? submitButton.textContent : "";
@@ -1302,6 +1332,7 @@
     renderReservations();
     renderMedia();
     renderSettings();
+    renderScheduleSchemaWarning();
   };
 
   const loadData = async () => {

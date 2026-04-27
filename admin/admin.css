@@ -492,6 +492,8 @@ img {
   border: 1px dashed rgba(255, 107, 44, 0.22);
   background: rgba(255, 255, 255, 0.74);
   line-height: 1.75;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-toolbar {
@@ -804,10 +806,16 @@ img {
 .admin-field {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .admin-field--full {
   grid-column: 1 / -1;
+}
+
+.admin-field small {
+  color: var(--muted);
+  line-height: 1.55;
 }
 
 .admin-form-actions {
@@ -877,7 +885,8 @@ img {
   z-index: 1;
   width: min(720px, 100%);
   max-height: calc(100vh - 40px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 22px;
   border-radius: 28px;
   border: 1px solid var(--line);
@@ -891,6 +900,10 @@ img {
 
 .admin-modal__panel--small {
   width: min(480px, 100%);
+}
+
+.admin-modal__panel--schedule {
+  width: min(760px, 100%);
 }
 
 .admin-modal__head {
@@ -915,6 +928,16 @@ img {
 .admin-modal__actions {
   gap: 10px;
   justify-content: flex-end;
+}
+
+.admin-schema-warning {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(202, 77, 67, 0.22);
+  background: rgba(202, 77, 67, 0.08);
+  color: var(--danger);
+  line-height: 1.65;
 }
 
 .admin-confirm-copy {
@@ -1776,17 +1799,28 @@ body[data-admin-theme="dark"] .admin-inline-feedback--page {
 
 [data-schedule-preview] {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
+  align-items: stretch;
 }
 
 body[data-admin-theme="dark"] .admin-status-control span {
   color: #d9c7bb;
 }
 
+body[data-admin-theme="dark"] .admin-schema-warning {
+  border-color: rgba(255, 122, 122, 0.24);
+  background: rgba(255, 122, 122, 0.1);
+  color: #ffd2d2;
+}
+
 @media (max-width: 720px) {
   [data-schedule-preview] {
     grid-template-columns: 1fr;
+  }
+
+  .admin-modal__panel--schedule {
+    width: 100%;
   }
 }
 

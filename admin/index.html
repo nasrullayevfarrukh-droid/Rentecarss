@@ -519,7 +519,7 @@
 
     <div class="admin-modal" data-dialog="schedule" hidden>
       <div class="admin-modal__backdrop" data-close-schedule-dialog></div>
-      <div class="admin-modal__panel admin-modal__panel--small">
+      <div class="admin-modal__panel admin-modal__panel--schedule">
         <div class="admin-modal__head">
           <div>
             <span class="admin-eyebrow" data-schedule-dialog-mode>Yeni kayıt</span>
@@ -527,6 +527,8 @@
           </div>
           <button class="admin-icon-button" type="button" data-close-schedule-dialog aria-label="Bağla">✕</button>
         </div>
+
+        <div class="admin-schema-warning" data-schedule-schema-warning hidden></div>
 
         <form class="admin-form" data-schedule-form>
           <input type="hidden" name="id" />
