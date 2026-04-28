@@ -65,15 +65,15 @@
       section.className = "admin-simple-reservation";
       section.innerHTML = `
         <div class="admin-simple-reservation__head">
-          <strong>Sadə rezerv statusu</strong>
-          <span>Bu maşın üçün götürülmə və qayıdış tarixini ayrıca saxla.</span>
+          <strong>Rezerv statusu</strong>
+          <span>Bu maşın üçün rezerv olub-olmadığını, götürülmə və qayıdış tarixini ayrıca saxla.</span>
         </div>
         <div class="admin-form-grid admin-form-grid--two">
           <label class="admin-field admin-field--full admin-checkbox-field">
-            <span>Rezerv vəziyyəti</span>
+            <span>Rezerv olunub</span>
             <label class="admin-checkbox">
               <input type="checkbox" name="isReserved" />
-              <span>Maşın rezerv olunub</span>
+              <span>Bu maşın hazırda rezerv göstərilsin</span>
             </label>
           </label>
         </div>
@@ -87,8 +87,8 @@
             <input type="datetime-local" name="reservationEndDateTime" />
           </label>
           <label class="admin-field admin-field--full">
-            <span>Qeyd</span>
-            <textarea name="reservationNote" rows="3" placeholder="Müştəri və ya rezerv qeydi"></textarea>
+            <span>Rezerv qeydi</span>
+            <textarea name="reservationNote" rows="3" placeholder="İstəyə bağlı qeyd"></textarea>
           </label>
         </div>
       `;
@@ -106,8 +106,15 @@
     if (!form) return;
     const fields = form.querySelector("[data-simple-reservation-fields]");
     const reservedField = form.elements.namedItem("isReserved");
+    const startField = form.elements.namedItem("reservationStartDateTime");
+    const endField = form.elements.namedItem("reservationEndDateTime");
+
     if (!fields || !reservedField) return;
-    fields.hidden = !reservedField.checked;
+
+    const visible = Boolean(reservedField.checked);
+    fields.hidden = !visible;
+    if (startField) startField.required = visible;
+    if (endField) endField.required = visible;
   };
 
   const populateReservationFields = async () => {
