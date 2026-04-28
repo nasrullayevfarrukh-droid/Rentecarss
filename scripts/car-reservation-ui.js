@@ -27,63 +27,61 @@
       }
       .simple-reservation {
         display: grid;
-        gap: 4px;
-        margin-top: 10px;
-        padding: 10px 12px;
-        border-radius: 16px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        background: linear-gradient(180deg, rgba(18, 21, 27, 0.92), rgba(30, 35, 42, 0.82));
-        box-shadow: 0 16px 32px rgba(10, 12, 18, 0.18);
+        gap: 3px;
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-left: 2px solid rgba(255, 107, 44, 0.82);
+        border-radius: 0 12px 12px 0;
+        background: rgba(255, 107, 44, 0.06);
       }
       .simple-reservation__title {
-        color: #fff7f2;
-        font-size: 0.78rem;
+        color: #fff6ef;
+        font-size: 0.72rem;
         font-weight: 800;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
       }
       .simple-reservation__row,
       .simple-reservation__note {
-        color: rgba(255, 247, 242, 0.9);
-        font-size: 0.82rem;
-        line-height: 1.4;
+        color: rgba(255, 244, 237, 0.88);
+        font-size: 0.78rem;
+        line-height: 1.35;
       }
       .simple-reservation__row b {
         color: #ffffff;
         font-weight: 700;
       }
       .simple-reservation__note {
-        color: rgba(255, 247, 242, 0.74);
+        color: rgba(255, 244, 237, 0.68);
       }
       .simple-reservation--card {
-        margin-bottom: 10px;
+        margin-bottom: 2px;
       }
       .simple-reservation--detail {
-        max-width: 360px;
-        margin-bottom: 12px;
+        max-width: 340px;
+        margin-bottom: 4px;
       }
       body[data-theme="light"] .simple-reservation {
-        border-color: rgba(255, 100, 54, 0.14);
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 243, 237, 0.94));
-        box-shadow: 0 16px 30px rgba(255, 100, 54, 0.12);
+        border-left-color: rgba(255, 107, 44, 0.9);
+        background: rgba(255, 107, 44, 0.08);
       }
       body[data-theme="light"] .simple-reservation__title {
-        color: #1f181a;
+        color: #322425;
       }
       body[data-theme="light"] .simple-reservation__row {
-        color: rgba(31, 24, 26, 0.86);
+        color: rgba(50, 36, 37, 0.84);
       }
       body[data-theme="light"] .simple-reservation__row b {
-        color: #1a1517;
+        color: #1f1819;
       }
       body[data-theme="light"] .simple-reservation__note {
-        color: rgba(31, 24, 26, 0.66);
+        color: rgba(50, 36, 37, 0.64);
       }
       @media (max-width: 720px) {
         .simple-reservation {
-          margin-top: 8px;
-          padding: 9px 10px;
-          border-radius: 14px;
+          margin-top: 6px;
+          padding: 7px 9px;
+          border-radius: 0 10px 10px 0;
         }
         .simple-reservation--detail {
           max-width: none;
@@ -119,6 +117,8 @@
       : "";
     const note = toStringValue(car.reservationNote);
 
+    if (!startLabel && !endLabel && !note) return null;
+
     return {
       startLabel,
       endLabel,
@@ -128,7 +128,7 @@
 
   const buildBlockMarkup = (view) => `
     <strong class="simple-reservation__title">Rezerv olunub</strong>
-    <span class="simple-reservation__row"><b>Götürülmə:</b> ${escapeHtml(view.startLabel || "-")}</span>
+    <span class="simple-reservation__row"><b>Verilmə:</b> ${escapeHtml(view.startLabel || "-")}</span>
     <span class="simple-reservation__row"><b>Qayıdış:</b> ${escapeHtml(view.endLabel || "-")}</span>
     ${view.note ? `<span class="simple-reservation__note">${escapeHtml(view.note)}</span>` : ""}
   `;
@@ -149,6 +149,11 @@
     return promise;
   };
 
+  const insertAfterTarget = (target, block) => {
+    if (!target) return;
+    target.insertAdjacentElement("afterend", block);
+  };
+
   const upsertCardReservationBlocks = async () => {
     const links = qsa('.fleet-grid--catalog a[href*="/cars/"], .fleet-grid--catalog a[href*="car.html"]');
     if (!links.length) return;
@@ -159,12 +164,14 @@
       const car = await loadCarBySlug(slug, cache);
       const card = link.closest("article") || link;
       const heading = qs(".fleet-card__meta strong, .fleet-card__meta h3, h3, h4", card);
+      const price = qs(".fleet-card__meta span", card);
       const existing = qs(`[${BLOCK_ATTR}="card"]`, card);
       const view = getReservationView(car);
+      const anchor = price || heading;
 
       clearLegacyReservationUi(card);
 
-      if (!view || !heading) {
+      if (!view || !anchor) {
         if (existing) existing.remove();
         return;
       }
@@ -175,7 +182,10 @@
       block.innerHTML = buildBlockMarkup(view);
 
       if (!existing) {
-        heading.insertAdjacentElement("afterend", block);
+        insertAfterTarget(anchor, block);
+      } else if (block.previousElementSibling !== anchor) {
+        block.remove();
+        insertAfterTarget(anchor, block);
       }
     }));
   };
@@ -185,6 +195,7 @@
 
     const summary = qs(".vehicle-summary");
     const heading = summary && qs("h1", summary);
+    const price = summary && qs(".vehicle-price", summary);
     if (!summary || !heading) return;
 
     clearLegacyReservationUi(summary);
@@ -193,8 +204,9 @@
     const car = await Data.getPublishedCarBySlug(slug).catch(() => null);
     const existing = qs(`[${BLOCK_ATTR}="detail"]`, summary);
     const view = getReservationView(car);
+    const anchor = price || heading;
 
-    if (!view) {
+    if (!view || !anchor) {
       if (existing) existing.remove();
       return;
     }
@@ -205,7 +217,10 @@
     block.innerHTML = buildBlockMarkup(view);
 
     if (!existing) {
-      heading.insertAdjacentElement("afterend", block);
+      insertAfterTarget(anchor, block);
+    } else if (block.previousElementSibling !== anchor) {
+      block.remove();
+      insertAfterTarget(anchor, block);
     }
   };
 
