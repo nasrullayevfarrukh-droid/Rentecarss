@@ -1655,6 +1655,7 @@
     if (meta) meta.setAttribute("content", getCarSummary(car));
 
     const eyebrow = qs(".vehicle-summary .eyebrow");
+    const summaryWrap = qs(".vehicle-summary");
     const title = qs(".vehicle-summary h1");
     const price = qs(".vehicle-price");
     const summary = qs(".vehicle-summary p");
@@ -1662,10 +1663,24 @@
     const descriptionTitle = qs("[data-car-description-title]") || qs(".vehicle-layout .content-card h3");
     const description = qs("[data-car-description]") || qs(".vehicle-layout .content-card p");
     const features = qs("[data-car-features]");
-    const rentalState = qs("[data-car-rental-state]");
+    let rentalState = qs(".vehicle-summary [data-car-rental-state]") || qs("[data-car-rental-state]");
     const images = getCarMediaImages(car);
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
+
+    if (summaryWrap) {
+      if (!rentalState) {
+        rentalState = document.createElement("div");
+        rentalState.className = "vehicle-rental-state";
+        rentalState.hidden = true;
+        rentalState.setAttribute("data-car-rental-state", "");
+      }
+      if (summary && rentalState.parentElement !== summaryWrap) {
+        summary.insertAdjacentElement("afterend", rentalState);
+      } else if (rentalState.parentElement !== summaryWrap) {
+        summaryWrap.appendChild(rentalState);
+      }
+    }
 
     if (eyebrow) eyebrow.textContent = car.featured ? carCopy.featuredEyebrow : getCategoryLabel(car.category);
     if (title) title.textContent = car.year ? `${car.title} ${car.year}` : car.title;
