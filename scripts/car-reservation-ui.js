@@ -26,62 +26,77 @@
         display: none !important;
       }
       .simple-reservation {
-        display: grid;
-        gap: 3px;
+        display: inline-grid;
+        justify-items: start;
+        gap: 2px;
+        width: fit-content;
+        max-width: 100%;
         margin-top: 8px;
-        padding: 8px 10px;
-        border-left: 2px solid rgba(255, 107, 44, 0.82);
-        border-radius: 0 12px 12px 0;
-        background: rgba(255, 107, 44, 0.06);
+        padding: 7px 10px;
+        border: 1px solid rgba(255, 107, 44, 0.22);
+        border-radius: 14px;
+        background: rgba(39, 30, 33, 0.92);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
       }
       .simple-reservation__title {
-        color: #fff6ef;
+        color: #ff9b67;
         font-size: 0.72rem;
         font-weight: 800;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.04em;
         text-transform: uppercase;
       }
       .simple-reservation__row,
       .simple-reservation__note {
-        color: rgba(255, 244, 237, 0.88);
-        font-size: 0.78rem;
-        line-height: 1.35;
+        color: rgba(255, 244, 237, 0.86);
+        font-size: 0.75rem;
+        line-height: 1.32;
       }
       .simple-reservation__row b {
-        color: #ffffff;
+        color: rgba(255, 244, 237, 0.62);
         font-weight: 700;
       }
       .simple-reservation__note {
-        color: rgba(255, 244, 237, 0.68);
+        color: rgba(255, 244, 237, 0.62);
       }
       .simple-reservation--card {
         margin-bottom: 2px;
       }
       .simple-reservation--detail {
-        max-width: 340px;
-        margin-bottom: 4px;
+        gap: 3px;
+        margin-top: 10px;
+        margin-bottom: 6px;
+        padding: 9px 12px;
+        border-radius: 16px;
+        max-width: 360px;
       }
       body[data-theme="light"] .simple-reservation {
-        border-left-color: rgba(255, 107, 44, 0.9);
-        background: rgba(255, 107, 44, 0.08);
+        border-color: rgba(255, 107, 44, 0.28);
+        background: rgba(255, 250, 246, 0.96);
       }
       body[data-theme="light"] .simple-reservation__title {
-        color: #322425;
+        color: #cf5a24;
       }
       body[data-theme="light"] .simple-reservation__row {
         color: rgba(50, 36, 37, 0.84);
       }
       body[data-theme="light"] .simple-reservation__row b {
-        color: #1f1819;
+        color: rgba(50, 36, 37, 0.62);
       }
       body[data-theme="light"] .simple-reservation__note {
-        color: rgba(50, 36, 37, 0.64);
+        color: rgba(50, 36, 37, 0.62);
       }
       @media (max-width: 720px) {
         .simple-reservation {
-          margin-top: 6px;
-          padding: 7px 9px;
-          border-radius: 0 10px 10px 0;
+          margin-top: 7px;
+          padding: 6px 9px;
+          border-radius: 12px;
+        }
+        .simple-reservation__title {
+          font-size: 0.7rem;
+        }
+        .simple-reservation__row,
+        .simple-reservation__note {
+          font-size: 0.72rem;
         }
         .simple-reservation--detail {
           max-width: none;
