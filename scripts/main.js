@@ -594,45 +594,33 @@
     if (state === "rented" && summary && summary.activeReservation) {
       return {
         tone: "rented",
-        eyebrow: "Kirada",
-        primary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
-        secondary: `Kalan ${formatRemainingTime(summary.remainingMs)}`,
+        eyebrow: "İcarə tarixləri",
+        primary: `Başlanğıc: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+        secondary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
       };
     }
     if (state === "reserved" && summary && summary.activeReservation) {
       return {
         tone: "reserved",
-        eyebrow: "Rezerve",
-        primary: `Boşalma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
-        secondary: `Başlangıç: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+        eyebrow: "Rezerv tarixləri",
+        primary: `Başlanğıc: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+        secondary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
       };
     }
     if (state === "available" && summary && summary.upcomingReservation) {
       return {
         tone: "upcoming",
-        eyebrow: "Müsait",
-        primary: `Boşdur: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}'a kadar`,
-        secondary: `Rezerv: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
+        eyebrow: "Yaxın rezerv",
+        primary: `Başlanğıc: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
+        secondary: `Qaytarılma: ${formatReservationDateTime(summary.upcomingReservation.endDateTime)}`,
       };
     }
-    if (state === "expired" && summary && summary.latestExpiredReservation) {
-      return {
-        tone: "expired",
-        eyebrow: "Müsait",
-        primary: `Son qaytarılma: ${formatReservationDateTime(summary.latestExpiredReservation.endDateTime)}`,
-        secondary: "Hazırda yenidən boşdur",
-      };
-    }
-    return {
-      tone: "available",
-      eyebrow: "Müsait",
-      primary: "Hazırda boşdur",
-      secondary: "İndi rezerv edilə bilər",
-    };
+    return null;
   };
 
   const buildReservationGlanceMarkup = (summary, className) => {
     const info = getReservationGlanceData(summary);
+    if (!info) return "";
     return `
       <div class="${className} ${className}--${escapeHtml(info.tone)}">
         <span class="${className}__eyebrow">${escapeHtml(info.eyebrow)}</span>
@@ -1616,6 +1604,11 @@
       const liveSummary = getCarAvailabilitySummary(car);
       const liveStatus = resolveAvailabilityState(liveSummary);
       const info = getReservationGlanceData(liveSummary);
+      if (!info) {
+        node.hidden = true;
+        node.innerHTML = "";
+        return;
+      }
       node.hidden = false;
       node.innerHTML = `
         <div class="vehicle-rental-state__head">
