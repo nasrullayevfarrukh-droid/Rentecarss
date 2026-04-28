@@ -1515,16 +1515,12 @@
     const availabilitySummary = getCarAvailabilitySummary(car);
     const availabilityState = resolveAvailabilityState(availabilitySummary);
     const badgeMarkup = `<span class="vehicle-status vehicle-status--${escapeHtml(availabilityState)}">${escapeHtml(getScheduleAvailabilityBadgeText(availabilitySummary))}</span>`;
-    const scheduleGlanceMarkup = buildReservationGlanceMarkup(availabilitySummary, "vehicle-visual__schedule");
     node.style.backgroundImage = "none";
     if (!images.length) {
       node.innerHTML = `
         <div class="vehicle-visual__stage">
           ${badgeMarkup}
           <span class="vehicle-visual__empty">${escapeHtml(localeCopy("card.imagePending"))}</span>
-          <div class="vehicle-visual__overlay">
-            ${scheduleGlanceMarkup}
-          </div>
         </div>
       `;
       return { setImage: () => {} };
@@ -1536,9 +1532,6 @@
         <button class="vehicle-visual__nav vehicle-visual__nav--prev" type="button" data-vehicle-nav="prev" aria-label="Previous image"${images.length > 1 ? "" : " hidden"}>&lsaquo;</button>
         <img class="vehicle-visual__image" data-vehicle-stage-image src="${escapeHtml(images[0])}" alt="${escapeHtml(car.title)}" loading="eager" />
         <button class="vehicle-visual__nav vehicle-visual__nav--next" type="button" data-vehicle-nav="next" aria-label="Next image"${images.length > 1 ? "" : " hidden"}>&rsaquo;</button>
-        <div class="vehicle-visual__overlay">
-          ${scheduleGlanceMarkup}
-        </div>
         <span class="vehicle-visual__count" data-vehicle-count>${String(1).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</span>
       </div>
       ${images.length > 1 ? `
