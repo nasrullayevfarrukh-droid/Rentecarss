@@ -27,12 +27,12 @@
       }
       .simple-reservation {
         display: inline-grid;
-        justify-items: start;
         gap: 2px;
+        justify-items: start;
         width: fit-content;
         max-width: 100%;
         margin-top: 8px;
-        padding: 7px 10px;
+        padding: 6px 10px;
         border: 1px solid rgba(255, 107, 44, 0.22);
         border-radius: 14px;
         background: rgba(39, 30, 33, 0.92);
@@ -40,7 +40,7 @@
       }
       .simple-reservation__title {
         color: #ff9b67;
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         font-weight: 800;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -48,8 +48,8 @@
       .simple-reservation__row,
       .simple-reservation__note {
         color: rgba(255, 244, 237, 0.86);
-        font-size: 0.75rem;
-        line-height: 1.32;
+        font-size: 0.74rem;
+        line-height: 1.3;
       }
       .simple-reservation__row b {
         color: rgba(255, 244, 237, 0.62);
@@ -59,15 +59,23 @@
         color: rgba(255, 244, 237, 0.62);
       }
       .simple-reservation--card {
+        max-width: 260px;
         margin-bottom: 2px;
       }
       .simple-reservation--detail {
         gap: 3px;
+        max-width: 360px;
         margin-top: 10px;
         margin-bottom: 6px;
-        padding: 9px 12px;
+        padding: 8px 12px;
         border-radius: 16px;
-        max-width: 360px;
+      }
+      .simple-reservation--detail .simple-reservation__title {
+        font-size: 0.74rem;
+      }
+      .simple-reservation--detail .simple-reservation__row,
+      .simple-reservation--detail .simple-reservation__note {
+        font-size: 0.78rem;
       }
       body[data-theme="light"] .simple-reservation {
         border-color: rgba(255, 107, 44, 0.28);
@@ -92,14 +100,15 @@
           border-radius: 12px;
         }
         .simple-reservation__title {
-          font-size: 0.7rem;
+          font-size: 0.68rem;
         }
         .simple-reservation__row,
         .simple-reservation__note {
-          font-size: 0.72rem;
+          font-size: 0.71rem;
         }
+        .simple-reservation--card,
         .simple-reservation--detail {
-          max-width: none;
+          max-width: 100%;
         }
       }
     `;
@@ -125,10 +134,10 @@
     if (!Data.isSimpleReservationActive(car)) return null;
 
     const startLabel = typeof Data.formatSimpleReservationDateTime === "function"
-      ? Data.formatSimpleReservationDateTime(car.reservationStartDateTime, "az-AZ", "Asia/Baku")
+      ? Data.formatSimpleReservationDateTime(car.reservationStartDateTime)
       : "";
     const endLabel = typeof Data.formatSimpleReservationDateTime === "function"
-      ? Data.formatSimpleReservationDateTime(car.reservationEndDateTime, "az-AZ", "Asia/Baku")
+      ? Data.formatSimpleReservationDateTime(car.reservationEndDateTime)
       : "";
     const note = toStringValue(car.reservationNote);
 
@@ -141,12 +150,27 @@
     };
   };
 
-  const buildBlockMarkup = (view) => `
-    <strong class="simple-reservation__title">Rezerv olunub</strong>
-    <span class="simple-reservation__row"><b>Verilmə:</b> ${escapeHtml(view.startLabel || "-")}</span>
-    <span class="simple-reservation__row"><b>Qayıdış:</b> ${escapeHtml(view.endLabel || "-")}</span>
-    ${view.note ? `<span class="simple-reservation__note">${escapeHtml(view.note)}</span>` : ""}
-  `;
+  const formatDetailLabel = (value) => {
+    const clean = toStringValue(value);
+    if (!clean) return "-";
+    const parts = clean.split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0]} saat ${parts.slice(1).join(" ")}`;
+    }
+    return clean;
+  };
+
+  const buildBlockMarkup = (view, variant = "card") => {
+    const startLabel = variant === "detail" ? formatDetailLabel(view.startLabel) : (view.startLabel || "-");
+    const endLabel = variant === "detail" ? formatDetailLabel(view.endLabel) : (view.endLabel || "-");
+
+    return `
+      <strong class="simple-reservation__title">Rezerv olunub</strong>
+      <span class="simple-reservation__row"><b>Verilmə:</b> ${escapeHtml(startLabel)}</span>
+      <span class="simple-reservation__row"><b>Qaytarılma:</b> ${escapeHtml(endLabel)}</span>
+      ${view.note ? `<span class="simple-reservation__note">${escapeHtml(view.note)}</span>` : ""}
+    `;
+  };
 
   const clearLegacyReservationUi = (scope = document) => {
     qsa(".fleet-card__schedule, .vehicle-rental-state", scope).forEach((node) => {
@@ -194,7 +218,7 @@
       const block = existing || document.createElement("div");
       block.setAttribute(BLOCK_ATTR, "card");
       block.className = "simple-reservation simple-reservation--card";
-      block.innerHTML = buildBlockMarkup(view);
+      block.innerHTML = buildBlockMarkup(view, "card");
 
       if (!existing) {
         insertAfterTarget(anchor, block);
@@ -229,7 +253,7 @@
     const block = existing || document.createElement("div");
     block.setAttribute(BLOCK_ATTR, "detail");
     block.className = "simple-reservation simple-reservation--detail";
-    block.innerHTML = buildBlockMarkup(view);
+    block.innerHTML = buildBlockMarkup(view, "detail");
 
     if (!existing) {
       insertAfterTarget(anchor, block);
