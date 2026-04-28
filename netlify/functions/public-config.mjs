@@ -1,8 +1,28 @@
-﻿export default async () => {
+const readEnv = (key) => {
+  try {
+    if (typeof process !== "undefined" && process.env && process.env[key]) {
+      return process.env[key];
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    if (typeof Netlify !== "undefined" && Netlify.env && typeof Netlify.env.get === "function") {
+      return Netlify.env.get(key) || "";
+    }
+  } catch {
+    // ignore
+  }
+
+  return "";
+};
+
+export default async () => {
   const payload = {
-    supabaseUrl: Netlify.env.get("SUPABASE_URL") || "",
-    supabaseAnonKey: Netlify.env.get("SUPABASE_ANON_KEY") || "",
-    storageBucket: Netlify.env.get("SUPABASE_CAR_IMAGES_BUCKET") || "car-images",
+    supabaseUrl: readEnv("SUPABASE_URL"),
+    supabaseAnonKey: readEnv("SUPABASE_ANON_KEY"),
+    storageBucket: readEnv("SUPABASE_CAR_IMAGES_BUCKET") || "car-images",
   };
 
   return new Response(JSON.stringify(payload), {
