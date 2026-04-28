@@ -3,6 +3,12 @@ directory = "netlify/functions"
 node_bundler = "esbuild"
 
 [[redirects]]
+from = "/api/public-config"
+to = "/.netlify/functions/public-config"
+status = 200
+force = true
+
+[[redirects]]
 from = "/pages/cars/:slug.html"
 to = "/cars/:slug"
 status = 301
