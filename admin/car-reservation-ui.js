@@ -47,11 +47,23 @@
   };
 
   const toLocalDateTimeValue = (value) => {
-    if (!value) return "";
-    const date = new Date(value);
+    const clean = String(value ?? "").trim();
+    if (!clean) return "";
+
+    const normalized = clean.replace(" ", "T");
+    const directMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (directMatch) {
+      return `${directMatch[1]}-${directMatch[2]}-${directMatch[3]}T${directMatch[4]}:${directMatch[5]}`;
+    }
+
+    const date = new Date(clean);
     if (Number.isNaN(date.getTime())) return "";
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return localDate.toISOString().slice(0, 16);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hour}:${minute}`;
   };
 
   const ensureSection = () => {
@@ -66,7 +78,7 @@
       section.innerHTML = `
         <div class="admin-simple-reservation__head">
           <strong>Rezerv statusu</strong>
-          <span>Bu maşın üçün rezerv olub-olmadığını, götürülmə və qayıdış tarixini ayrıca saxla.</span>
+          <span>Bu maşın üçün rezerv olub-olmadığını, götürülmə və qaytarılış tarixini ayrıca saxla.</span>
         </div>
         <div class="admin-form-grid admin-form-grid--two">
           <label class="admin-field admin-field--full admin-checkbox-field">
