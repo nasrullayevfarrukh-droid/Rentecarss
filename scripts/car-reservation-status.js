@@ -20,12 +20,22 @@
   };
 
   const toStringValue = (value) => String(value ?? "").trim();
+  const pad2 = (value) => String(value).padStart(2, "0");
 
-  const toIsoString = (value) => {
+  const toDateTimeValue = (value) => {
     const clean = toStringValue(value);
     if (!clean) return "";
+
+    const normalized = clean.replace(" ", "T");
+    const directMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (directMatch) {
+      return `${directMatch[1]}-${directMatch[2]}-${directMatch[3]}T${directMatch[4]}:${directMatch[5]}`;
+    }
+
     const date = new Date(clean);
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+    if (Number.isNaN(date.getTime())) return "";
+
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
   const toBoolean = (value) => (
@@ -57,13 +67,13 @@
 
   const normalizeReservationRecord = (input = {}) => ({
     isReserved: toBoolean(input.isReserved ?? input.is_reserved),
-    reservationStartDateTime: toIsoString(
+    reservationStartDateTime: toDateTimeValue(
       input.reservationStartDateTime
       ?? input.reservation_start_at
       ?? input.startDateTime
       ?? input.start_at
     ),
-    reservationEndDateTime: toIsoString(
+    reservationEndDateTime: toDateTimeValue(
       input.reservationEndDateTime
       ?? input.reservation_end_at
       ?? input.endDateTime
@@ -104,24 +114,19 @@
 
   const isReservationActive = (reservation, now = Date.now()) => {
     if (!reservation || !reservation.isReserved) return false;
-    const endTimestamp = Date.parse(toStringValue(reservation.reservationEndDateTime));
+    const endValue = toDateTimeValue(reservation.reservationEndDateTime);
+    const endTimestamp = Date.parse(endValue);
     return Number.isFinite(endTimestamp) && endTimestamp > now;
   };
 
-  const formatReservationDateTime = (value, locale = "az-AZ", timeZone = "Asia/Baku") => {
-    const isoValue = toIsoString(value);
-    if (!isoValue) return "";
-    const date = new Date(isoValue);
-    if (Number.isNaN(date.getTime())) return "";
-    return new Intl.DateTimeFormat(locale, {
-      timeZone,
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date);
+  const formatReservationDateTime = (value) => {
+    const normalized = toDateTimeValue(value);
+    if (!normalized) return "";
+    const [datePart, timePart] = normalized.split("T");
+    if (!datePart || !timePart) return "";
+    const [year, month, day] = datePart.split("-");
+    if (!year || !month || !day) return "";
+    return `${day}.${month}.${year} ${timePart.slice(0, 5)}`;
   };
 
   const readReservationDraftFromAdminForm = () => {
