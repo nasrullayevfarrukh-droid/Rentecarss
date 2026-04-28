@@ -696,6 +696,27 @@
         return leftTime - rightTime;
       });
 
+    if (!relevant.length && car && car.reservationStartDateTime && car.reservationEndDateTime) {
+      const startTimestamp = toTimestamp(car.reservationStartDateTime);
+      const endTimestamp = toTimestamp(car.reservationEndDateTime);
+      relevant.push({
+        id: `override-${toStringValue(car.id) || "car"}`,
+        carId: toStringValue(car.id),
+        status: normalizeAvailabilityStatus(car.availabilityStatus, "reserved"),
+        customerName: "",
+        customerPhone: "",
+        startDateTime: toStringValue(car.reservationStartDateTime),
+        rentalDays: toInteger(car.rentalDays, 1) || 1,
+        endDateTime: toStringValue(car.reservationEndDateTime),
+        note: "",
+        createdAt: "",
+        updatedAt: "",
+        startTimestamp,
+        endTimestamp,
+        effectiveStatus: normalizeAvailabilityStatus(car.availabilityStatus, "reserved"),
+      });
+    }
+
     const activeReservation = relevant.find((item) => (
       item.startTimestamp !== null
       && item.endTimestamp !== null
@@ -873,6 +894,8 @@
         acc[cleanSlug] = {
           availabilityStatus: cleanStatus,
           rentalDays: cleanStatus === "rented" ? toInteger(statusSource.rentalDays, null) : null,
+          reservationStartDateTime: toStringValue(statusSource.reservationStartDateTime || statusSource.startDateTime),
+          reservationEndDateTime: toStringValue(statusSource.reservationEndDateTime || statusSource.endDateTime),
         };
       }
       return acc;
@@ -899,13 +922,25 @@
 
   const applyLegacyCarStatusOverrides = async (cars, { force = false } = {}) => {
     const items = Array.isArray(cars) ? cars : [];
-    if (carsSchemaMode !== "legacy" || !items.length) {
+    if (!items.length) {
       return items;
     }
 
     const overrides = await getCarStatusOverrides({ force });
     return items.map((car) => {
       if (!car || typeof car !== "object") return car;
+      const override = overrides[car.slug];
+      const overrideStatus = normalizeAvailabilityStatus(override && override.availabilityStatus, "available");
+      const reservationStartDateTime = toStringValue(override && override.reservationStartDateTime);
+      const reservationEndDateTime = toStringValue(override && override.reservationEndDateTime);
+
+      if (carsSchemaMode !== "legacy") {
+        return {
+          ...car,
+          reservationStartDateTime,
+          reservationEndDateTime,
+        };
+      }
 
       const rawStatus = toStringValue(car.status).toLowerCase();
       if (rawStatus !== "published") {
@@ -913,16 +948,17 @@
           ...car,
           availabilityStatus: "expired",
           rentalDays: null,
+          reservationStartDateTime,
+          reservationEndDateTime,
         };
       }
-
-      const override = overrides[car.slug];
-      const overrideStatus = normalizeAvailabilityStatus(override && override.availabilityStatus, "available");
 
       return {
         ...car,
         availabilityStatus: ["reserved", "rented", "expired"].includes(overrideStatus) ? overrideStatus : "available",
         rentalDays: overrideStatus === "rented" && override ? toInteger(override.rentalDays, null) : null,
+        reservationStartDateTime,
+        reservationEndDateTime,
       };
     });
   };
@@ -962,6 +998,94 @@
       rentalDays: cleanRentalDays,
     }]);
     return nextCar || car;
+  };
+
+  const syncCarReservationDisplayOverride = async (carId) => {
+    const cleanCarId = toStringValue(carId);
+    if (!cleanCarId) return;
+
+    const cars = await listAdminCars();
+    const car = cars.find((item) => toStringValue(item.id) === cleanCarId);
+    if (!car || !toStringValue(car.slug)) return;
+
+    const reservations = carReservationsSchemaMode === "full"
+      ? await requestCarReservationsRest({
+          admin: true,
+          allowMissing: true,
+          select: CAR_RESERVATION_COLUMNS,
+          order: "start_at.desc",
+          filters: { car_id: `eq.${cleanCarId}` },
+        })
+      : await listFallbackCarReservations({ force: true, admin: true });
+
+    const normalizedReservations = Array.isArray(reservations)
+      ? reservations.map((item) => normalizeCarReservationRecord(item))
+      : [];
+    const summary = buildCarReservationSummary(car, normalizedReservations, Date.now());
+    const displayReservation = summary.activeReservation || summary.upcomingReservation || summary.latestExpiredReservation || null;
+    const overrides = await getCarStatusOverrides();
+    const nextOverrides = { ...overrides };
+
+    if (!displayReservation) {
+      if (nextOverrides[car.slug]) {
+        delete nextOverrides[car.slug];
+        await saveCarStatusOverrides(nextOverrides);
+      }
+      return;
+    }
+
+    const displayStatus = summary.activeReservation
+      ? summary.currentStatus
+      : (summary.upcomingReservation ? "reserved" : summary.currentStatus);
+
+    nextOverrides[car.slug] = {
+      availabilityStatus: displayStatus,
+      rentalDays: displayStatus === "rented" ? toInteger(displayReservation.rentalDays, car.rentalDays) : null,
+      reservationStartDateTime: toStringValue(displayReservation.startDateTime),
+      reservationEndDateTime: toStringValue(displayReservation.endDateTime),
+    };
+    await saveCarStatusOverrides(nextOverrides);
+  };
+
+  const syncReservationDisplayOverridesFromItems = async (reservations = []) => {
+    const cars = await listAdminCars();
+    const overrides = await getCarStatusOverrides();
+    const nextOverrides = { ...overrides };
+    let changed = false;
+
+    cars.forEach((car) => {
+      if (!car || !toStringValue(car.slug)) return;
+      const summary = buildCarReservationSummary(car, reservations, Date.now());
+      const displayReservation = summary.activeReservation || summary.upcomingReservation || summary.latestExpiredReservation || null;
+
+      if (!displayReservation) {
+        if (nextOverrides[car.slug] && (nextOverrides[car.slug].reservationStartDateTime || nextOverrides[car.slug].reservationEndDateTime)) {
+          delete nextOverrides[car.slug];
+          changed = true;
+        }
+        return;
+      }
+
+      const displayStatus = summary.activeReservation
+        ? summary.currentStatus
+        : (summary.upcomingReservation ? "reserved" : summary.currentStatus);
+      const previous = nextOverrides[car.slug] || {};
+      const nextValue = {
+        availabilityStatus: displayStatus,
+        rentalDays: displayStatus === "rented" ? toInteger(displayReservation.rentalDays, car.rentalDays) : null,
+        reservationStartDateTime: toStringValue(displayReservation.startDateTime),
+        reservationEndDateTime: toStringValue(displayReservation.endDateTime),
+      };
+
+      if (JSON.stringify(previous) !== JSON.stringify(nextValue)) {
+        nextOverrides[car.slug] = nextValue;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      await saveCarStatusOverrides(nextOverrides);
+    }
   };
 
   const normalizeHomeSpotlightContent = (value) => {
@@ -1696,6 +1820,7 @@
       const filteredFallback = carId
         ? fallbackItems.filter((item) => item.carId === toStringValue(carId))
         : fallbackItems;
+      await syncReservationDisplayOverridesFromItems(fallbackItems);
       return sortCarReservations(filteredFallback, "desc");
     }
 
@@ -1714,6 +1839,7 @@
       }
     }
     await saveFallbackCarReservations(items, { preserveSchemaMode: true });
+    await syncReservationDisplayOverridesFromItems(items);
     return items;
   };
 
@@ -1780,6 +1906,7 @@
     publicCarReservationsCache = null;
     fallbackCarReservationsCache = null;
     await mirrorFullCarReservationsToFallback();
+    await syncCarReservationDisplayOverride(payload.car_id);
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
@@ -1818,11 +1945,23 @@
     publicCarReservationsCache = null;
     fallbackCarReservationsCache = null;
     await mirrorFullCarReservationsToFallback();
+    await syncCarReservationDisplayOverride(payload.car_id);
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
   const deleteCarReservation = async (id) => {
+    let deletedCarId = "";
     try {
+      if (carReservationsSchemaMode === "full") {
+        const existingRows = await requestCarReservationsRest({
+          admin: true,
+          select: CAR_RESERVATION_COLUMNS,
+          filters: { id: `eq.${toStringValue(id)}` },
+          allowMissing: true,
+          limit: 1,
+        });
+        deletedCarId = Array.isArray(existingRows) && existingRows[0] ? toStringValue(existingRows[0].car_id) : "";
+      }
       await requestCarReservationsRest({
         admin: true,
         method: "DELETE",
@@ -1836,11 +1975,16 @@
       }
       const targetId = toStringValue(id);
       const source = await listFallbackCarReservations({ force: true, admin: true });
+      const target = source.find((item) => item.id === targetId);
+      deletedCarId = target ? toStringValue(target.carId) : deletedCarId;
       await saveFallbackCarReservations(source.filter((item) => item.id !== targetId));
     }
     publicCarReservationsCache = null;
     if (carReservationsSchemaMode === "full") {
       await mirrorFullCarReservationsToFallback();
+    }
+    if (deletedCarId) {
+      await syncCarReservationDisplayOverride(deletedCarId);
     }
   };
 
