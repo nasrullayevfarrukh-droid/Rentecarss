@@ -1,1 +1,763 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="az">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Rentacarss.az Supabase admin paneli" />
+    <title>Rentacarss.az | Admin panel</title>
+    <link rel="icon" type="image/jpeg" href="../491418310_572009719261404_7589279120410787750_n.jpg" />
+    <link rel="apple-touch-icon" href="../491418310_572009719261404_7589279120410787750_n.jpg" />
+    <meta name="theme-color" content="#ff6436" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./admin.css" />
+    <script src="/scripts/supabase-client.js"></script>
+    <script src="/scripts/car-reservation-status.js"></script>
+    <script src="./auth.js"></script>
+    <script>
+      if (window.RentacarAdminAuth && !window.RentacarAdminAuth.hasStoredSession()) {
+        window.RentacarAdminAuth.redirectToLogin(window.location.hash.slice(1));
+      }
+    </script>
+  </head>
+  <body data-admin-theme="light">
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <a class="admin-brand" href="../index.html">
+          <span class="admin-brand__mark"><img src="../491418310_572009719261404_7589279120410787750_n.jpg" alt="Rentacarss.az" /></span>
+          <span class="admin-brand__copy">
+            <strong>Rentacarss.az Admin</strong>
+            <small>Supabase idarəetmə paneli</small>
+          </span>
+        </a>
+
+        <nav class="admin-nav" aria-label="Admin navigation">
+          <button class="admin-nav__item is-active" type="button" data-route="dashboard">
+            <strong>Panel</strong>
+          </button>
+          <button class="admin-nav__item" type="button" data-route="cars">
+            <strong>Avtomobillər</strong>
+          </button>
+          <button class="admin-nav__item" type="button" data-route="reservations">
+            <strong>Rezervlər</strong>
+          </button>
+          <button class="admin-nav__item" type="button" data-route="media">
+            <strong>Media</strong>
+          </button>
+          <button class="admin-nav__item" type="button" data-route="settings">
+            <strong>Ayarlar</strong>
+          </button>
+        </nav>
+
+        <div class="admin-sidebar__note">
+          <span>Tək mənbə</span>
+          <p>Bu panel və public sayt eyni Supabase cars cədvəlindən oxuyur. Inventar üçün localStorage istifadə edilmir.</p>
+        </div>
+      </aside>
+
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <div class="admin-heading">
+            <span>İdarəetmə</span>
+            <h1 data-page-title>Panel</h1>
+          </div>
+          <div class="admin-topbar__actions">
+            <a class="admin-link-button" href="../index.html">Sayta keç</a>
+            <button class="admin-ghost-button admin-ghost-button--icon" type="button" data-theme-toggle aria-label="Gecə rejimi" title="Gecə rejimi">
+              <span class="admin-ghost-button__icon" data-theme-toggle-icon aria-hidden="true">☾</span>
+            </button>
+            <button class="admin-button admin-button--secondary" type="button" data-admin-logout>Çıxış</button>
+          </div>
+        </header>
+
+        <main class="admin-content">
+          <p class="admin-inline-feedback admin-inline-feedback--page" data-app-feedback hidden></p>
+
+          <section class="admin-view is-active" data-view="dashboard">
+            <div class="admin-page-head">
+              <div>
+                <span class="admin-eyebrow">Ümumi baxış</span>
+                <h2>Maşın cədvəlinin hazır vəziyyəti</h2>
+                <p>Buradakı rəqəmlər və siyahılar birbaşa Supabase-dən gəlir. Saytda olan maşınlar public hissədə dərhal görünür.</p>
+              </div>
+              <div class="admin-page-head__actions">
+                <button class="admin-button admin-button--primary" type="button" data-open-car-modal>Yeni avtomobil</button>
+                <button class="admin-button admin-button--secondary" type="button" data-route="reservations">Rezervlər</button>
+              </div>
+            </div>
+
+            <div class="admin-metric-grid" data-dashboard-metrics></div>
+
+            <div class="admin-grid admin-grid--two">
+              <article class="admin-card">
+                <div class="admin-card__head">
+                  <div>
+                    <span class="admin-eyebrow">Son yenilənənlər</span>
+                    <h3>Ən son maşın dəyişiklikləri</h3>
+                  </div>
+                </div>
+                <div data-dashboard-recent></div>
+              </article>
+
+              <article class="admin-card">
+                <div class="admin-card__head">
+                  <div>
+                    <span class="admin-eyebrow">Axın</span>
+                    <h3>Yeni iş prinsipi</h3>
+                  </div>
+                </div>
+                <div class="admin-note-list">
+                  <div class="admin-note-item">Admin əlavə etdiyi maşın kod faylına yazılmır, Supabase cars cədvəlinə yazılır.</div>
+                  <div class="admin-note-item">Əsas şəkil və qalereya şəkilləri Supabase Storage bucket-də saxlanılır.</div>
+                  <div class="admin-note-item">Ana səhifə, siyahı və detail səhifə eyni backend mənbəyindən oxuyur.</div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="admin-view" data-view="cars">
+            <div class="admin-page-head admin-page-head--stack">
+              <div>
+                <span class="admin-eyebrow">Avtomobillər</span>
+                <h2>Maşın inventarını idarə et</h2>
+                <p>Maşın əlavə etmə, redaktə, silmə, sayta çıxarma, arxivləmə və icarə vəziyyəti bu bölmədən idarə olunur.</p>
+              </div>
+              <div class="admin-page-head__actions">
+                <button class="admin-button admin-button--primary" type="button" data-open-car-modal>Yeni avtomobil</button>
+              </div>
+            </div>
+
+            <div class="admin-toolbar">
+              <label class="admin-search-field">
+                <span>Axtarış</span>
+                <input type="search" data-cars-search placeholder="Başlıq, marka, model və slug üzrə axtar" />
+              </label>
+              <label class="admin-search-field">
+                <span>Kateqoriya</span>
+                <select data-cars-category>
+                  <option value="all">Bütün kateqoriyalar</option>
+                  <option value="economy">Ekonom</option>
+                  <option value="comfort">Komfort</option>
+                  <option value="suv">SUV</option>
+                  <option value="premium">Premium</option>
+                  <option value="sport">Sport</option>
+                  <option value="minivan">Minivan</option>
+                </select>
+              </label>
+              <label class="admin-search-field">
+                <span>Status</span>
+                <select data-cars-status>
+                  <option value="all">Bütün statuslar</option>
+                  <option value="active">Müsait</option>
+                  <option value="reserved">Rezerve</option>
+                  <option value="rented">Kirada</option>
+                  <option value="expired">Süresi doldu</option>
+                  <option value="archived">Arşiv</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="admin-list" data-cars-list></div>
+            <div class="admin-empty-state" data-cars-empty hidden>Filterə uyğun maşın tapılmadı.</div>
+          </section>
+
+          <section class="admin-view" data-view="reservations">
+            <div class="admin-page-head admin-page-head--stack">
+              <div>
+                <span class="admin-eyebrow">Rezervasyon ve kiralama</span>
+                <h2>Araç takvimi ve web talepleri</h2>
+                <p>Bu bölümde araçların saatlik rezervasyon planını, aktif kiralamayı ve siteden gelen müşteri taleplerini birlikte yönetebilirsin.</p>
+              </div>
+              <div class="admin-page-head__actions">
+                <button class="admin-button admin-button--primary" type="button" data-open-schedule-modal>Yeni rezervasyon / kiralama</button>
+              </div>
+            </div>
+
+            <article class="admin-card">
+              <div class="admin-card__head">
+                <div>
+                  <span class="admin-eyebrow">Araç takvimi</span>
+                  <h3>Rezerve ve kirada olan araçlar</h3>
+                </div>
+              </div>
+
+              <div class="admin-toolbar">
+                <label class="admin-search-field">
+                  <span>Ara</span>
+                  <input type="search" data-schedule-search placeholder="Araç, müşteri veya telefon ile ara" />
+                </label>
+                <label class="admin-search-field">
+                  <span>Durum</span>
+                  <select data-schedule-status>
+                    <option value="all">Tüm durumlar</option>
+                    <option value="reserved">Rezerve</option>
+                    <option value="rented">Kirada</option>
+                    <option value="expired">Süresi doldu</option>
+                  </select>
+                </label>
+                <label class="admin-search-field">
+                  <span>Araç</span>
+                  <select data-schedule-car>
+                    <option value="all">Tüm araçlar</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="admin-list" data-schedule-list></div>
+              <div class="admin-empty-state" data-schedule-empty hidden>Henüz rezervasyon veya kiralama planı yok.</div>
+            </article>
+
+            <article class="admin-card">
+              <div class="admin-card__head">
+                <div>
+                  <span class="admin-eyebrow">Web talepleri</span>
+                  <h3>Formdan gelen müşteri mesajları</h3>
+                </div>
+              </div>
+
+              <div class="admin-toolbar">
+                <label class="admin-search-field">
+                  <span>Axtarış</span>
+                  <input type="search" data-reservations-search placeholder="Ad, telefon, maşın və ya vəsiqə üzrə axtar" />
+                </label>
+                <label class="admin-search-field">
+                  <span>Rezerv statusu</span>
+                  <select data-reservations-status>
+                    <option value="all">Bütün rezervlər</option>
+                    <option value="new">Yeni</option>
+                    <option value="reviewed">Baxıldı</option>
+                    <option value="spam">Saxta</option>
+                    <option value="archived">Arxiv</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="admin-list" data-reservations-list></div>
+              <div class="admin-empty-state" data-reservations-empty hidden>Hələ rezerv göndərilməyib.</div>
+            </article>
+          </section>
+
+          <section class="admin-view" data-view="media">
+            <div class="admin-page-head admin-page-head--stack">
+              <div>
+                <span class="admin-eyebrow">Media yaddaşı</span>
+                <h2>Şəkil kitabxanası</h2>
+                <p>Buradan şəkilləri bucket-ə yükləyə, linki kopyalaya və istifadədə olmayan faylları silə bilərsən.</p>
+              </div>
+            </div>
+
+            <div class="admin-toolbar admin-toolbar--media">
+              <label class="admin-search-field admin-search-field--wide">
+                <span>Media axtar</span>
+                <input type="search" data-media-search placeholder="Fayl adına görə axtar" />
+              </label>
+              <label class="admin-upload-box">
+                <input type="file" accept="image/*" multiple hidden data-media-input />
+                <strong>Şəkil yüklə</strong>
+                <small>Yaddaş bucket-inə bir neçə şəkli bir dəfəlik göndərə bilərsən.</small>
+              </label>
+            </div>
+
+            <div class="admin-media-grid" data-media-grid></div>
+            <div class="admin-empty-state" data-media-empty hidden>Bucket daxilində şəkil yoxdur.</div>
+          </section>
+
+          <section class="admin-view" data-view="settings">
+            <div class="admin-page-head admin-page-head--stack">
+              <div>
+                <span class="admin-eyebrow">Ayarlar</span>
+                <h2>Ana səhifə blokları və backend ayarları</h2>
+                <p>Buradan ana səhifə hero, spotlight və CTA bloklarının mətnini, şəklini və düymələrini idarə edə bilərsən. Aşağıda isə Supabase bağlantı statusu qalır.</p>
+              </div>
+            </div>
+
+            <div class="admin-grid admin-grid--two">
+              <article class="admin-card">
+                <div class="admin-card__head">
+                  <div>
+                    <span class="admin-eyebrow">Ana səhifə blokları</span>
+                    <h3>Publik hissənin idarəsi</h3>
+                  </div>
+                </div>
+
+                <form class="admin-form" data-settings-form>
+                  <div class="admin-form-grid admin-form-grid--two">
+                    <label class="admin-field">
+                      <span>Hero nişanı</span>
+                      <input type="text" name="heroBadge" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>Hero başlıq</span>
+                      <input type="text" name="heroTitle" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>Hero mətn</span>
+                      <textarea name="heroText" rows="4" required></textarea>
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero əsas düymə mətni</span>
+                      <input type="text" name="heroPrimaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero əsas düymə linki</span>
+                      <input type="text" name="heroPrimaryButtonLink" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero ikinci düymə mətni</span>
+                      <input type="text" name="heroSecondaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero ikinci düymə linki</span>
+                      <input type="text" name="heroSecondaryButtonLink" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 1 dəyər</span>
+                      <input type="text" name="heroTrust1Value" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 1 mətn</span>
+                      <input type="text" name="heroTrust1Label" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 2 dəyər</span>
+                      <input type="text" name="heroTrust2Value" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 2 mətn</span>
+                      <input type="text" name="heroTrust2Label" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 3 dəyər</span>
+                      <input type="text" name="heroTrust3Value" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Hero etibar 3 mətn</span>
+                      <input type="text" name="heroTrust3Label" />
+                    </label>
+                  </div>
+
+                  <div class="admin-form-grid admin-form-grid--two">
+                    <label class="admin-field">
+                      <span>Spotlight nişanı</span>
+                      <input type="text" name="badge" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>Spotlight başlıq</span>
+                      <input type="text" name="title" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>Mətn</span>
+                      <textarea name="text" rows="4" required></textarea>
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>Şəkil və ya logo URL</span>
+                      <input type="url" name="imageUrl" placeholder="https://..." />
+                      <small>Supabase Storage public URL və ya başqa image URL istifadə et.</small>
+                    </label>
+                    <label class="admin-field">
+                      <span>Əsas düymə mətni</span>
+                      <input type="text" name="primaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>Əsas düymə linki</span>
+                      <input type="text" name="primaryButtonLink" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>İkinci düymə mətni</span>
+                      <input type="text" name="secondaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>İkinci düymə linki</span>
+                      <input type="text" name="secondaryButtonLink" required />
+                    </label>
+                    <label class="admin-field admin-field--full admin-checkbox-field">
+                      <span>Görünürlük</span>
+                      <label class="admin-checkbox">
+                        <input type="checkbox" name="visible" />
+                        <span>Section public homepage-də görünsün</span>
+                      </label>
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 1 başlıq</span>
+                      <input type="text" name="card1Title" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 1 mətn</span>
+                      <textarea name="card1Text" rows="3"></textarea>
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 2 başlıq</span>
+                      <input type="text" name="card2Title" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 2 mətn</span>
+                      <textarea name="card2Text" rows="3"></textarea>
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 3 başlıq</span>
+                      <input type="text" name="card3Title" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 3 mətn</span>
+                      <textarea name="card3Text" rows="3"></textarea>
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 4 başlıq</span>
+                      <input type="text" name="card4Title" />
+                    </label>
+                    <label class="admin-field">
+                      <span>Kart 4 mətn</span>
+                      <textarea name="card4Text" rows="3"></textarea>
+                    </label>
+                  </div>
+
+                  <div class="admin-form-grid admin-form-grid--two">
+                    <label class="admin-field">
+                      <span>CTA nişanı</span>
+                      <input type="text" name="ctaBadge" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>CTA başlıq</span>
+                      <input type="text" name="ctaTitle" required />
+                    </label>
+                    <label class="admin-field admin-field--full">
+                      <span>CTA mətn</span>
+                      <textarea name="ctaText" rows="4" required></textarea>
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA meta 1</span>
+                      <input type="text" name="ctaMeta1" />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA meta 2</span>
+                      <input type="text" name="ctaMeta2" />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA meta 3</span>
+                      <input type="text" name="ctaMeta3" />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA meta 4</span>
+                      <input type="text" name="ctaMeta4" />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA əsas düymə mətni</span>
+                      <input type="text" name="ctaPrimaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA əsas düymə linki</span>
+                      <input type="text" name="ctaPrimaryButtonLink" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA ikinci düymə mətni</span>
+                      <input type="text" name="ctaSecondaryButtonLabel" required />
+                    </label>
+                    <label class="admin-field">
+                      <span>CTA ikinci düymə linki</span>
+                      <input type="text" name="ctaSecondaryButtonLink" required />
+                    </label>
+                  </div>
+
+                  <div class="admin-grid admin-grid--two">
+                    <article class="admin-subcard">
+                      <div class="admin-subcard__head">
+                        <div>
+                          <span class="admin-eyebrow">Preview</span>
+                          <h3>Section şəkli</h3>
+                        </div>
+                      </div>
+                      <div class="admin-cover-preview" data-settings-image-preview></div>
+                    </article>
+
+                    <article class="admin-subcard">
+                      <div class="admin-subcard__head">
+                        <div>
+                          <span class="admin-eyebrow">Media seçici</span>
+                          <h3>Media-dan seç</h3>
+                        </div>
+                      </div>
+                      <div class="admin-media-picker" data-settings-media-picker></div>
+                    </article>
+                  </div>
+
+                  <p class="admin-inline-feedback" data-settings-feedback></p>
+
+                  <div class="admin-modal__footer">
+                    <div class="admin-modal__actions">
+                      <button class="admin-button admin-button--primary" type="submit">Section-i saxla</button>
+                    </div>
+                  </div>
+                </form>
+              </article>
+
+              <aside class="admin-stack admin-stack--settings">
+                <article class="admin-card">
+                  <div class="admin-card__head">
+                    <div>
+                      <span class="admin-eyebrow">Status</span>
+                      <h3>Aktiv bağlantı</h3>
+                    </div>
+                  </div>
+                  <div class="admin-preview" data-settings-status></div>
+                </article>
+
+                <article class="admin-card">
+                  <div class="admin-card__head">
+                    <div>
+                      <span class="admin-eyebrow">Checklist</span>
+                      <h3>Production axını</h3>
+                    </div>
+                  </div>
+                  <div class="admin-note-list" data-settings-checklist></div>
+                </article>
+              </aside>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <div class="admin-modal" data-dialog="schedule" hidden>
+      <div class="admin-modal__backdrop" data-close-schedule-dialog></div>
+      <div class="admin-modal__panel admin-modal__panel--schedule">
+        <div class="admin-modal__head">
+          <div>
+            <span class="admin-eyebrow" data-schedule-dialog-mode>Yeni kayıt</span>
+            <h3 data-schedule-dialog-title>Rezervasyon / kiralama yönet</h3>
+          </div>
+          <button class="admin-icon-button" type="button" data-close-schedule-dialog aria-label="Bağla">✕</button>
+        </div>
+
+        <div class="admin-schema-warning" data-schedule-schema-warning hidden></div>
+
+        <form class="admin-form" data-schedule-form>
+          <input type="hidden" name="id" />
+          <div class="admin-form-grid admin-form-grid--two">
+            <label class="admin-field admin-field--full">
+              <span>Araç</span>
+              <select name="carId" required data-schedule-car-select>
+                <option value="">Araç seç</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Durum</span>
+              <select name="status" required>
+                <option value="reserved">Rezerve</option>
+                <option value="rented">Kirada</option>
+                <option value="expired">Süresi doldu</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Müştəri adı</span>
+              <input type="text" name="customerName" required />
+            </label>
+            <label class="admin-field">
+              <span>Müştəri telefonu</span>
+              <input type="tel" name="customerPhone" placeholder="+994 99 889 19 19" required />
+            </label>
+            <label class="admin-field">
+              <span>Başlangıç tarih ve saat</span>
+              <input type="datetime-local" name="startDateTime" required />
+            </label>
+            <label class="admin-field">
+              <span>Kiralama gün sayısı</span>
+              <input type="number" name="rentalDays" min="1" max="365" step="1" value="1" required />
+            </label>
+            <label class="admin-field">
+              <span>Bitiş tarih ve saat</span>
+              <input type="datetime-local" name="endDateTime" required />
+              <small>Başlangıç ve gün sayısı değişince otomatik hesaplanır. İstersen elle de değiştirebilirsin.</small>
+            </label>
+            <div class="admin-field">
+              <span>Hızlı işlem</span>
+              <button class="admin-mini-button admin-mini-button--wide" type="button" data-schedule-recalculate>Bitişi yeniden hesapla</button>
+            </div>
+            <label class="admin-field admin-field--full">
+              <span>Not</span>
+              <textarea name="note" rows="4" placeholder="Teslim, ödeme veya özel not"></textarea>
+            </label>
+          </div>
+
+          <div class="admin-note-list" data-schedule-preview></div>
+          <p class="admin-inline-feedback" data-schedule-feedback></p>
+
+          <div class="admin-modal__footer">
+            <div class="admin-modal__actions">
+              <button class="admin-button admin-button--secondary" type="button" data-close-schedule-dialog>Vazgeç</button>
+              <button class="admin-button admin-button--primary" type="submit">Kaydı kaydet</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="admin-modal" data-dialog="car" hidden>
+      <div class="admin-modal__backdrop" data-close-dialog></div>
+      <div class="admin-modal__panel admin-modal__panel--wide">
+        <div class="admin-modal__head">
+          <div>
+            <span class="admin-eyebrow" data-car-dialog-mode>Yeni avtomobil</span>
+            <h3 data-car-dialog-title>Yeni maşın əlavə et</h3>
+          </div>
+          <button class="admin-icon-button" type="button" data-close-dialog aria-label="Bağla">✕</button>
+        </div>
+
+        <form class="admin-form" data-car-form>
+          <input type="hidden" name="id" />
+          <div class="admin-form-grid admin-form-grid--two">
+            <label class="admin-field">
+              <span>Başlıq</span>
+              <input type="text" name="title" required />
+            </label>
+            <label class="admin-field">
+              <span>Slug</span>
+              <input type="text" name="slug" placeholder="məs: kia-cerato" />
+              <small>Boş qoysan avtomatik yaranacaq.</small>
+            </label>
+            <label class="admin-field">
+              <span>Marka</span>
+              <input type="text" name="brand" required />
+            </label>
+            <label class="admin-field">
+              <span>Model</span>
+              <input type="text" name="model" required />
+            </label>
+            <label class="admin-field">
+              <span>İl</span>
+              <input type="number" name="year" min="2000" max="2035" />
+            </label>
+            <label class="admin-field">
+              <span>Kateqoriya</span>
+              <select name="category">
+                <option value="economy">Ekonom</option>
+                <option value="comfort">Komfort</option>
+                <option value="suv">SUV</option>
+                <option value="premium">Premium</option>
+                <option value="sport">Sport</option>
+                <option value="minivan">Minivan</option>
+              </select>
+            </label>
+            <label class="admin-field">
+              <span>Şəhər</span>
+              <input type="text" name="city" value="Bakı" />
+            </label>
+            <label class="admin-field">
+              <span>Rəng</span>
+              <input type="text" name="color" />
+            </label>
+            <label class="admin-field">
+              <span>Gündəlik qiymət</span>
+              <input type="number" name="dailyPrice" min="0" step="0.01" required />
+            </label>
+            <label class="admin-field">
+              <span>Aylıq qiymət</span>
+              <input type="number" name="monthlyPrice" min="0" step="0.01" />
+            </label>
+            <label class="admin-field">
+              <span>Transmissiya</span>
+              <input type="text" name="transmission" required />
+            </label>
+            <label class="admin-field">
+              <span>Yanacaq</span>
+              <input type="text" name="fuelType" required />
+            </label>
+            <label class="admin-field">
+              <span>Oturacaq sayı</span>
+              <input type="number" name="seats" min="1" max="20" required />
+            </label>
+            <label class="admin-field">
+              <span>Yedek durum</span>
+              <select name="displayStatus">
+                <option value="active">Müsait</option>
+                <option value="reserved">Rezerve</option>
+                <option value="rented">Kirada</option>
+                <option value="expired">Süresi doldu</option>
+                <option value="archived">Arşiv</option>
+              </select>
+            </label>
+            <label class="admin-field" data-rental-days-field hidden>
+              <span>Manuel kiralama günü</span>
+              <input type="number" name="rentalDays" min="1" max="365" step="1" placeholder="Örnek 3" />
+              <small>Saatlik takvim yerine yedek durum kullanırsan doldurulur.</small>
+            </label>
+            <label class="admin-field admin-field--full">
+              <span>Qısa xülasə</span>
+              <input type="text" name="summary" maxlength="220" />
+            </label>
+            <label class="admin-field admin-field--full">
+              <span>Təsvir</span>
+              <textarea name="description" rows="5" required></textarea>
+            </label>
+            <label class="admin-field admin-field--full">
+              <span>Xüsusiyyət siyahısı</span>
+              <textarea name="featuresText" rows="4" placeholder="Avtomat, Apple CarPlay, Kamera və s."></textarea>
+              <small>Vergül və ya yeni sətirlə ayır.</small>
+            </label>
+            <label class="admin-field admin-field--full admin-checkbox-field">
+              <span>Əsas seçim</span>
+              <label class="admin-checkbox">
+                <input type="checkbox" name="featured" />
+                <span>Ana səhifədə önə çıxart</span>
+              </label>
+            </label>
+          </div>
+
+          <div class="admin-grid admin-grid--two">
+            <article class="admin-subcard">
+              <div class="admin-subcard__head">
+                <div>
+                  <span class="admin-eyebrow">Əsas şəkil</span>
+                  <h3>Əsas şəkil</h3>
+                </div>
+              </div>
+              <label class="admin-upload-box">
+                <input type="file" accept="image/*" hidden data-cover-input />
+                <strong>Əsas şəkil seç</strong>
+                <small>Bir şəkil seç və ya aşağıdakı media kitabxanasından götür.</small>
+              </label>
+              <div class="admin-cover-preview" data-cover-preview></div>
+            </article>
+
+            <article class="admin-subcard">
+              <div class="admin-subcard__head">
+                <div>
+                  <span class="admin-eyebrow">Qalereya</span>
+                  <h3>Qalereya şəkilləri</h3>
+                </div>
+              </div>
+              <label class="admin-upload-box">
+                <input type="file" accept="image/*" multiple hidden data-gallery-input />
+                <strong>Qalereya seç</strong>
+                <small>Bir neçə şəkli eyni anda əlavə edə bilərsən.</small>
+              </label>
+              <div class="admin-gallery-preview" data-gallery-preview></div>
+            </article>
+          </div>
+
+          <article class="admin-subcard">
+            <div class="admin-subcard__head">
+              <div>
+                <span class="admin-eyebrow">Media seçici</span>
+                <h3>Mövcud şəkillərdən seç</h3>
+              </div>
+            </div>
+            <div class="admin-media-picker" data-media-picker></div>
+          </article>
+
+          <p class="admin-inline-feedback" data-car-feedback></p>
+
+          <div class="admin-modal__footer">
+            <div class="admin-modal__actions">
+              <button class="admin-button admin-button--secondary" type="button" data-close-dialog>Ləğv et</button>
+              <button class="admin-button admin-button--primary" type="submit">Saxla</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="./admin-app.js"></script>
+    <script src="./car-reservation-ui.js"></script>
+  </body>
+</html>
