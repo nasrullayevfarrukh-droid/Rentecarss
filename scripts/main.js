@@ -591,20 +591,29 @@
 
   const getReservationGlanceData = (summary) => {
     const state = resolveAvailabilityState(summary);
-    if (state === "rented" && summary && summary.activeReservation) {
+    const plannedReservation = summary && (
+      summary.activeReservation
+      || summary.upcomingReservation
+      || (Array.isArray(summary.relevantReservations)
+        ? summary.relevantReservations.find((item) => ["reserved", "rented"].includes(item.effectiveStatus))
+        : null)
+      || summary.latestExpiredReservation
+    );
+
+    if (state === "rented" && plannedReservation) {
       return {
         tone: "rented",
         badge: getScheduleAvailabilityLabel(summary),
-        primary: `İcarə: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
-        secondary: `Qayıdış: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        primary: `İcarə: ${formatReservationDateTime(plannedReservation.startDateTime)}`,
+        secondary: `Qayıdış: ${formatReservationDateTime(plannedReservation.endDateTime)}`,
       };
     }
-    if (state === "reserved" && summary && summary.activeReservation) {
+    if (state === "reserved" && plannedReservation) {
       return {
         tone: "reserved",
         badge: getScheduleAvailabilityLabel(summary),
-        primary: `Rezerv: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
-        secondary: `Qayıdış: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        primary: `Rezerv: ${formatReservationDateTime(plannedReservation.startDateTime)}`,
+        secondary: `Qayıdış: ${formatReservationDateTime(plannedReservation.endDateTime)}`,
       };
     }
     if (state === "available" && summary && summary.upcomingReservation) {
