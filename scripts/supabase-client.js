@@ -926,7 +926,12 @@
       return items;
     }
 
-    const overrides = await getCarStatusOverrides({ force });
+    let overrides = {};
+    try {
+      overrides = await getCarStatusOverrides({ force });
+    } catch {
+      overrides = {};
+    }
     return items.map((car) => {
       if (!car || typeof car !== "object") return car;
       const override = overrides[car.slug];
