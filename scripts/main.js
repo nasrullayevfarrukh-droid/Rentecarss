@@ -594,25 +594,25 @@
     if (state === "rented" && summary && summary.activeReservation) {
       return {
         tone: "rented",
-        eyebrow: "İcarə tarixləri",
-        primary: `Başlanğıc: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
-        secondary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        badge: getScheduleAvailabilityLabel(summary),
+        primary: `İcarə: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+        secondary: `Qayıdış: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
       };
     }
     if (state === "reserved" && summary && summary.activeReservation) {
       return {
         tone: "reserved",
-        eyebrow: "Rezerv tarixləri",
-        primary: `Başlanğıc: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
-        secondary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        badge: getScheduleAvailabilityLabel(summary),
+        primary: `Rezerv: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
+        secondary: `Qayıdış: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
       };
     }
     if (state === "available" && summary && summary.upcomingReservation) {
       return {
         tone: "upcoming",
-        eyebrow: "Yaxın rezerv",
-        primary: `Başlanğıc: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
-        secondary: `Qaytarılma: ${formatReservationDateTime(summary.upcomingReservation.endDateTime)}`,
+        badge: "Yaxın rezerv",
+        primary: `Rezerv: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
+        secondary: `Boşalır: ${formatReservationDateTime(summary.upcomingReservation.endDateTime)}`,
       };
     }
     return null;
@@ -623,7 +623,6 @@
     if (!info) return "";
     return `
       <div class="${className} ${className}--${escapeHtml(info.tone)}">
-        <span class="${className}__eyebrow">${escapeHtml(info.eyebrow)}</span>
         <strong class="${className}__primary">${escapeHtml(info.primary)}</strong>
         <span class="${className}__secondary">${escapeHtml(info.secondary)}</span>
       </div>
@@ -1613,7 +1612,7 @@
       node.innerHTML = `
         <div class="vehicle-rental-state__head">
           <strong>${escapeHtml(info.primary)}</strong>
-          <span class="vehicle-rental-state__badge vehicle-rental-state__badge--${escapeHtml(info.tone)}">${escapeHtml(info.eyebrow)}</span>
+          <span class="vehicle-rental-state__badge vehicle-rental-state__badge--${escapeHtml(info.tone)}">${escapeHtml(info.badge || getScheduleAvailabilityLabel(liveSummary))}</span>
         </div>
         <p class="vehicle-rental-state__summary">${escapeHtml(info.secondary)}</p>
       `;

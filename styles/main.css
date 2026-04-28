@@ -768,20 +768,21 @@ h3,
   bottom: 16px;
   z-index: 1;
   display: grid;
-  gap: 2px;
-  width: min(220px, calc(100% - 32px));
-  padding: 10px 12px;
-  border-radius: 16px;
+  gap: 4px;
+  width: min(208px, calc(100% - 32px));
+  padding: 10px 11px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: linear-gradient(180deg, rgba(17, 18, 22, 0.2), rgba(17, 18, 22, 0.68));
   color: #fff8f2;
-  box-shadow: 0 14px 24px rgba(12, 11, 14, 0.2);
-  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 22px rgba(12, 11, 14, 0.2);
+  backdrop-filter: blur(12px);
   pointer-events: none;
 }
 
 .fleet-card__schedule__eyebrow,
 .vehicle-visual__schedule__eyebrow {
+  display: none;
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -791,7 +792,7 @@ h3,
 
 .fleet-card__schedule__primary,
 .vehicle-visual__schedule__primary {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -799,7 +800,7 @@ h3,
 
 .fleet-card__schedule__secondary,
 .vehicle-visual__schedule__secondary {
-  font-size: 0.7rem;
+  font-size: 0.74rem;
   font-weight: 600;
   line-height: 1.25;
   color: rgba(255, 246, 240, 0.82);
@@ -1194,10 +1195,11 @@ h3,
 }
 
 .vehicle-visual {
+  --vehicle-visual-height: 360px;
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 84px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  gap: 12px;
   align-items: start;
   border-radius: 24px;
   overflow: visible;
@@ -1210,6 +1212,8 @@ h3,
 
 .vehicle-visual__stage {
   position: relative;
+  height: var(--vehicle-visual-height);
+  min-height: var(--vehicle-visual-height);
   overflow: hidden;
   align-self: start;
   border-radius: 24px;
@@ -1222,7 +1226,7 @@ h3,
 
 .vehicle-visual__image {
   width: 100%;
-  height: clamp(320px, 34vw, 430px);
+  height: 100%;
   display: block;
   object-fit: cover;
   object-position: center;
@@ -1235,9 +1239,10 @@ h3,
 
 .vehicle-visual__overlay {
   position: absolute;
-  inset: 18px auto auto 18px;
+  inset: 16px auto auto 16px;
   display: block;
   pointer-events: none;
+  z-index: 2;
 }
 
 .vehicle-visual__overlay::before {
@@ -1246,15 +1251,15 @@ h3,
 
 .vehicle-visual__schedule {
   display: grid;
-  gap: 2px;
-  width: min(220px, calc(100vw - 120px));
-  padding: 10px 12px;
-  border-radius: 16px;
+  gap: 4px;
+  width: min(210px, calc(100vw - 120px));
+  padding: 10px 11px;
+  border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: linear-gradient(180deg, rgba(17, 18, 22, 0.24), rgba(17, 18, 22, 0.72));
   color: #fff8f2;
-  box-shadow: 0 14px 24px rgba(12, 11, 14, 0.18);
-  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 24px rgba(12, 11, 14, 0.18);
+  backdrop-filter: blur(12px);
 }
 
 .vehicle-visual__count {
@@ -1321,21 +1326,22 @@ h3,
 .vehicle-visual__thumbs {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  height: clamp(320px, 34vw, 430px);
+  gap: 10px;
+  height: var(--vehicle-visual-height);
+  max-height: var(--vehicle-visual-height);
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 2px;
   align-self: start;
 }
 
 .vehicle-visual__thumb {
   position: relative;
-  flex: 0 0 86px;
+  flex: 0 0 72px;
   overflow: hidden;
-  min-height: 86px;
+  min-height: 72px;
   padding: 0;
   border: 1px solid rgba(255, 107, 60, 0.14);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 251, 247, 0.84);
   box-shadow: 0 14px 30px rgba(17, 13, 16, 0.08);
   transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
@@ -2780,22 +2786,22 @@ body[data-theme="dark"] .menu-toggle {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 30px;
+  padding: 0 12px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: 0 14px 28px rgba(23, 24, 29, 0.16);
   backdrop-filter: blur(14px);
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .vehicle-visual__stage > .vehicle-status {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 16px;
+  right: 16px;
   z-index: 1;
 }
 
@@ -3058,13 +3064,13 @@ body[data-theme="dark"] .vehicle-visual__thumb.is-active {
     left: 18px;
     bottom: 10px;
     gap: 3px;
-    padding: 10px 12px;
-    border-radius: 16px;
+    padding: 9px 10px;
+    border-radius: 14px;
   }
 
   .fleet-card__schedule__primary,
   .vehicle-visual__schedule__primary {
-    font-size: 0.88rem;
+    font-size: 0.8rem;
   }
 
   .fleet-card__schedule__secondary,
@@ -3073,9 +3079,9 @@ body[data-theme="dark"] .vehicle-visual__thumb.is-active {
   }
 
   .vehicle-visual__schedule {
-    width: min(200px, calc(100vw - 88px));
-    padding: 10px 12px;
-    border-radius: 16px;
+    width: min(192px, calc(100vw - 88px));
+    padding: 9px 10px;
+    border-radius: 14px;
   }
 
   .vehicle-visual__count {
@@ -3669,11 +3675,12 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
 
 @media (max-width: 980px) {
   .vehicle-visual {
+    --vehicle-visual-height: 300px;
     grid-template-columns: 1fr;
   }
 
   .vehicle-visual__image {
-    height: 320px;
+    height: 100%;
   }
 
   .vehicle-visual__thumbs {
@@ -3683,24 +3690,29 @@ body[data-theme="dark"] .vehicle-feature-cloud span {
     overflow-x: auto;
     overflow-y: hidden;
     height: auto;
+    max-height: none;
     padding-bottom: 4px;
     padding-right: 0;
   }
 
   .vehicle-visual__thumb {
-    min-height: 90px;
+    min-height: 82px;
     flex: 0 0 auto;
   }
 
 }
 
 @media (max-width: 640px) {
+  .vehicle-visual {
+    --vehicle-visual-height: 240px;
+  }
+
   .vehicle-visual__stage {
     border-radius: 24px;
   }
 
   .vehicle-visual__image {
-    height: 250px;
+    height: 100%;
   }
 
   .vehicle-visual__nav {
