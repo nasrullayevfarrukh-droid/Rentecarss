@@ -1787,16 +1787,17 @@
           failed: false,
         });
       } catch {
+        const fallbackCars = Array.isArray(publicCars) ? publicCars.slice() : [];
         applyPublicContentSnapshot({
-          cars: [],
+          cars: fallbackCars,
           reservations: [],
           hero: Data.normalizeHomeHeroContent(Data.DEFAULT_HOME_HERO),
           spotlight: Data.normalizeHomeSpotlightContent(Data.DEFAULT_HOME_SPOTLIGHT),
           cta: Data.normalizeHomeCtaContent(Data.DEFAULT_HOME_CTA),
-          failed: true,
+          failed: !fallbackCars.length,
         });
 
-        if (!silent) {
+        if (!silent && !fallbackCars.length) {
           showCarsErrorState(localeCopy("messages.carsError"));
         }
       }

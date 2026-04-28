@@ -36,10 +36,34 @@
   const LEGACY_PUBLIC_CAR_COLUMN_LIST = PUBLIC_CAR_COLUMN_LIST.filter(
     (column) => !LEGACY_CAR_OPTIONAL_COLUMNS.includes(column)
   );
+  const SAFE_PUBLIC_CAR_COLUMN_LIST = [
+    "id",
+    "slug",
+    "title",
+    "brand",
+    "model",
+    "year",
+    "daily_price",
+    "monthly_price",
+    "transmission",
+    "fuel_type",
+    "seats",
+    "color",
+    "city",
+    "description",
+    "cover_image_url",
+    "gallery_images",
+    "featured",
+    "status",
+    "created_at",
+    "updated_at"
+  ];
   const LEGACY_CAR_STATUS_OVERRIDES_KEY = "car_status_overrides";
   const PUBLIC_CAR_COLUMNS = PUBLIC_CAR_COLUMN_LIST.join(",");
   const LEGACY_PUBLIC_CAR_COLUMNS = LEGACY_PUBLIC_CAR_COLUMN_LIST.join(",");
+  const SAFE_PUBLIC_CAR_COLUMNS = SAFE_PUBLIC_CAR_COLUMN_LIST.join(",");
   const SITE_CONTENT_LOCAL_FALLBACK_PREFIX = "rentacar-site-content-fallback-v1:";
+  const PUBLIC_CARS_LOCAL_FALLBACK_KEY = "rentacar-public-cars-fallback-v1";
   const SITE_CONTENT_COLUMNS = [
     "key",
     "value",
@@ -487,6 +511,26 @@
     return snapshot;
   };
 
+  const readPublishedCarsFallback = () => {
+    try {
+      const stored = localStorage.getItem(PUBLIC_CARS_LOCAL_FALLBACK_KEY);
+      const parsed = safeJsonParse(stored, []);
+      return Array.isArray(parsed) ? parsed.map((item) => normalizeCarRecord(item)) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writePublishedCarsFallback = (cars) => {
+    const snapshot = Array.isArray(cars) ? cars.map((item) => normalizeCarRecord(item)) : [];
+    try {
+      localStorage.setItem(PUBLIC_CARS_LOCAL_FALLBACK_KEY, JSON.stringify(snapshot));
+    } catch {
+      return snapshot;
+    }
+    return snapshot;
+  };
+
   const createUuid = () => {
     try {
       if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -868,6 +912,22 @@
       || message.includes(`cars.${column}`)
       || message.includes(`"${column}"`)
     ));
+  };
+
+  const isCarsSelectCompatibilityError = (error) => {
+    const message = [
+      getErrorText(error),
+      safeJsonParse(JSON.stringify(error && error.payload ? error.payload : {}), ""),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return (
+      (message.includes("cars") && message.includes("schema cache"))
+      || message.includes("column cars.")
+      || message.includes("could not find the")
+    );
   };
 
   const stripLegacyCarFields = (payload) => {
@@ -1505,7 +1565,7 @@
       carsSchemaMode = "full";
       return rows;
     } catch (error) {
-      if (!isLegacyCarsSchemaError(error)) {
+      if (!isLegacyCarsSchemaError(error) && !(primaryOptions.select === PUBLIC_CAR_COLUMNS && isCarsSelectCompatibilityError(error))) {
         throw error;
       }
 
@@ -1516,11 +1576,21 @@
         fallbackOptions.select = LEGACY_PUBLIC_CAR_COLUMNS;
       }
 
-      if (fallbackOptions.body && typeof fallbackOptions.body === "object" && !Array.isArray(fallbackOptions.body)) {
-        fallbackOptions.body = stripLegacyCarFields(fallbackOptions.body);
-      }
+      try {
+        if (fallbackOptions.body && typeof fallbackOptions.body === "object" && !Array.isArray(fallbackOptions.body)) {
+          fallbackOptions.body = stripLegacyCarFields(fallbackOptions.body);
+        }
 
-      return requestRest("cars", fallbackOptions);
+        return await requestRest("cars", fallbackOptions);
+      } catch (fallbackError) {
+        if (primaryOptions.select === PUBLIC_CAR_COLUMNS && isCarsSelectCompatibilityError(fallbackError)) {
+          return requestRest("cars", {
+            ...fallbackOptions,
+            select: SAFE_PUBLIC_CAR_COLUMNS,
+          });
+        }
+        throw fallbackError;
+      }
     }
   };
 
@@ -1549,24 +1619,36 @@
       return publishedCarsCache.slice();
     }
 
-    const rows = await requestCarsRest({
-      filters: {
-        status: "eq.published",
-        ...(featuredOnly ? { featured: "eq.true" } : {}),
-      },
-      select: PUBLIC_CAR_COLUMNS,
-      order: "featured.desc,sort_order.asc,updated_at.desc,title.asc",
-      limit,
-    });
+    try {
+      const rows = await requestCarsRest({
+        filters: {
+          status: "eq.published",
+          ...(featuredOnly ? { featured: "eq.true" } : {}),
+        },
+        select: PUBLIC_CAR_COLUMNS,
+        order: "featured.desc,sort_order.asc,updated_at.desc,title.asc",
+        limit,
+      });
 
-    const cars = await applyLegacyCarStatusOverrides(
-      Array.isArray(rows) ? rows.map(normalizeCarRecord) : [],
-      { force }
-    );
-    if (!featuredOnly && limit === null) {
-      publishedCarsCache = cars.slice();
+      const cars = await applyLegacyCarStatusOverrides(
+        Array.isArray(rows) ? rows.map(normalizeCarRecord) : [],
+        { force }
+      );
+      if (!featuredOnly && limit === null) {
+        publishedCarsCache = cars.slice();
+        writePublishedCarsFallback(cars);
+      }
+      return cars;
+    } catch (error) {
+      if (!featuredOnly && limit === null) {
+        const fallbackCars = readPublishedCarsFallback();
+        if (fallbackCars.length) {
+          publishedCarsCache = fallbackCars.slice();
+          return fallbackCars;
+        }
+      }
+      throw error;
     }
-    return cars;
   };
 
   const getPublishedCarBySlug = async (slug) => {
@@ -1578,19 +1660,26 @@
       if (cached) return cached;
     }
 
-    const rows = await requestCarsRest({
-      filters: {
-        slug: `eq.${cleanSlug}`,
-        status: "eq.published",
-      },
-      select: PUBLIC_CAR_COLUMNS,
-      limit: 1,
-      allowEmpty: true,
-    });
+    try {
+      const rows = await requestCarsRest({
+        filters: {
+          slug: `eq.${cleanSlug}`,
+          status: "eq.published",
+        },
+        select: PUBLIC_CAR_COLUMNS,
+        limit: 1,
+        allowEmpty: true,
+      });
 
-    if (!Array.isArray(rows) || !rows[0]) return null;
-    const [car] = await applyLegacyCarStatusOverrides([normalizeCarRecord(rows[0])], { force: true });
-    return car || null;
+      if (!Array.isArray(rows) || !rows[0]) return null;
+      const [car] = await applyLegacyCarStatusOverrides([normalizeCarRecord(rows[0])], { force: true });
+      return car || null;
+    } catch (error) {
+      const fallbackCars = readPublishedCarsFallback();
+      const fallbackCar = fallbackCars.find((car) => car.slug === cleanSlug);
+      if (fallbackCar) return fallbackCar;
+      throw error;
+    }
   };
 
   const listAdminCars = async () => {
