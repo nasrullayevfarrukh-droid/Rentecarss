@@ -2,7 +2,8 @@
   const Data = window.RentacarData;
   if (!Data || Data.__simpleReservationPatchApplied) return;
 
-  const STORE_KEY = "car_simple_reservations";
+  const STORAGE_KEY_PREFIX = "car_simple_reservation__";
+  const LEGACY_STORE_KEY = "car_simple_reservations";
   const RESERVATION_FIELD_NAMES = [
     "isReserved",
     "reservationStartDateTime",
@@ -10,7 +11,8 @@
     "reservationNote",
   ];
 
-  let reservationMapCache = null;
+  const reservationRecordCache = new Map();
+  let legacyReservationMapCache = null;
 
   const cloneData = (value) => {
     if (value === null || value === undefined) return value;
@@ -34,11 +36,22 @@
     || value === "1"
   );
 
-  const buildReservationKey = (carLike) => {
-    const id = toStringValue(carLike && carLike.id);
-    if (id) return `id:${id}`;
-    const slug = toStringValue(carLike && carLike.slug).toLowerCase();
-    if (slug) return `slug:${slug}`;
+  const buildReservationIdentity = (carLike = {}) => ({
+    id: toStringValue(carLike.id),
+    slug: toStringValue(carLike.slug).toLowerCase(),
+  });
+
+  const buildStorageKey = (carLike = {}) => {
+    const identity = buildReservationIdentity(carLike);
+    if (identity.id) return `${STORAGE_KEY_PREFIX}id__${identity.id}`;
+    if (identity.slug) return `${STORAGE_KEY_PREFIX}slug__${identity.slug}`;
+    return "";
+  };
+
+  const buildLegacyMapKey = (carLike = {}) => {
+    const identity = buildReservationIdentity(carLike);
+    if (identity.id) return `id:${identity.id}`;
+    if (identity.slug) return `slug:${identity.slug}`;
     return "";
   };
 
@@ -74,6 +87,12 @@
   };
 
   const hasReservationFields = (input = {}) => RESERVATION_FIELD_NAMES.some((field) => field in input);
+  const hasReservationPayload = (record = {}) => Boolean(
+    record.isReserved
+    || record.reservationStartDateTime
+    || record.reservationEndDateTime
+    || record.reservationNote
+  );
 
   const stripReservationFields = (input = {}) => {
     const next = { ...input };
@@ -143,67 +162,80 @@
     return { hasFields: false, record: null };
   };
 
-  const getSimpleReservationMap = async ({ force = false } = {}) => {
-    if (reservationMapCache && !force) {
-      return cloneData(reservationMapCache);
+  const getLegacyReservationMap = async ({ force = false } = {}) => {
+    if (legacyReservationMapCache && !force) {
+      return cloneData(legacyReservationMapCache);
     }
-    const stored = await Data.getSiteContent(STORE_KEY, { fallback: {} }).catch(() => ({}));
-    reservationMapCache = normalizeReservationMap(stored);
-    return cloneData(reservationMapCache);
+    const stored = await Data.getSiteContent(LEGACY_STORE_KEY, { fallback: {} }).catch(() => ({}));
+    legacyReservationMapCache = normalizeReservationMap(stored);
+    return cloneData(legacyReservationMapCache);
   };
 
-  const saveSimpleReservationMap = async (nextMap) => {
-    reservationMapCache = normalizeReservationMap(nextMap);
-    await Data.saveSiteContent(STORE_KEY, reservationMapCache);
-    return cloneData(reservationMapCache);
+  const readReservationRecord = async (storageKey, { force = false } = {}) => {
+    if (!storageKey) return normalizeReservationRecord({});
+    if (!force && reservationRecordCache.has(storageKey)) {
+      return cloneData(reservationRecordCache.get(storageKey));
+    }
+    const stored = await Data.getSiteContent(storageKey, { fallback: {} }).catch(() => ({}));
+    const normalized = normalizeReservationRecord(stored || {});
+    reservationRecordCache.set(storageKey, normalized);
+    return cloneData(normalized);
   };
 
   const getSimpleReservationForCar = async (carLike, { force = false } = {}) => {
-    const map = await getSimpleReservationMap({ force });
-    const idKey = buildReservationKey({ id: carLike && carLike.id });
-    const slugKey = buildReservationKey({ slug: carLike && carLike.slug });
-    return normalizeReservationRecord(map[idKey] || map[slugKey] || {});
+    const storageKey = buildStorageKey(carLike);
+    const directRecord = await readReservationRecord(storageKey, { force });
+    if (hasReservationPayload(directRecord)) {
+      return normalizeReservationRecord(directRecord);
+    }
+
+    const legacyMap = await getLegacyReservationMap({ force });
+    const legacyRecord = normalizeReservationRecord(legacyMap[buildLegacyMapKey(carLike)] || {});
+    if (hasReservationPayload(legacyRecord) && storageKey) {
+      reservationRecordCache.set(storageKey, legacyRecord);
+      return cloneData(legacyRecord);
+    }
+
+    return normalizeReservationRecord({});
   };
 
   const saveSimpleReservationForCar = async (carLike, input) => {
-    const map = await getSimpleReservationMap({ force: true });
-    const nextMap = { ...map };
-    const idKey = buildReservationKey({ id: carLike && carLike.id });
-    const slugKey = buildReservationKey({ slug: carLike && carLike.slug });
+    const storageKey = buildStorageKey(carLike);
+    if (!storageKey) return normalizeReservationRecord({});
+
     const normalized = normalizeReservationRecord(input || {});
+    const payload = normalized.isReserved ? normalized : {};
 
-    if (idKey) delete nextMap[idKey];
-    if (slugKey) delete nextMap[slugKey];
-
-    if (normalized.isReserved) {
-      const targetKey = idKey || slugKey;
-      if (targetKey) nextMap[targetKey] = normalized;
-    }
-
-    await saveSimpleReservationMap(nextMap);
-    return normalized;
+    await Data.saveSiteContent(storageKey, payload);
+    reservationRecordCache.set(storageKey, normalized);
+    return cloneData(normalized);
   };
 
   const deleteSimpleReservationForCar = async (carLike) => {
-    const map = await getSimpleReservationMap({ force: true });
-    const nextMap = { ...map };
-    const idKey = buildReservationKey({ id: carLike && carLike.id });
-    const slugKey = buildReservationKey({ slug: carLike && carLike.slug });
-    if (idKey) delete nextMap[idKey];
-    if (slugKey) delete nextMap[slugKey];
-    await saveSimpleReservationMap(nextMap);
+    await saveSimpleReservationForCar(carLike, {});
   };
 
-  const decorateCarWithSimpleReservation = (car, map = reservationMapCache || {}) => {
+  const decorateCarWithSimpleReservation = (car, reservation = null) => {
     if (!car || typeof car !== "object") return car;
-    const idKey = buildReservationKey({ id: car.id });
-    const slugKey = buildReservationKey({ slug: car.slug });
-    const reservation = normalizeReservationRecord(map[idKey] || map[slugKey] || {});
+    const storageKey = buildStorageKey(car);
+    const cachedRecord = reservation
+      || (storageKey ? reservationRecordCache.get(storageKey) : null)
+      || (legacyReservationMapCache && legacyReservationMapCache[buildLegacyMapKey(car)])
+      || {};
+    const normalized = normalizeReservationRecord(cachedRecord);
     return {
       ...car,
-      ...reservation,
-      reservationActive: isReservationActive(reservation),
+      ...normalized,
+      reservationActive: isReservationActive(normalized),
     };
+  };
+
+  const decorateCarsWithReservations = async (cars, { force = false } = {}) => {
+    const source = Array.isArray(cars) ? cars : [];
+    return Promise.all(source.map(async (car) => {
+      const reservation = await getSimpleReservationForCar(car, { force });
+      return decorateCarWithSimpleReservation(car, reservation);
+    }));
   };
 
   const originalListPublishedCars = Data.listPublishedCars ? Data.listPublishedCars.bind(Data) : null;
@@ -217,16 +249,14 @@
   if (originalListPublishedCars) {
     Data.listPublishedCars = async (...args) => {
       const cars = await originalListPublishedCars(...args);
-      const map = await getSimpleReservationMap();
-      return Array.isArray(cars) ? cars.map((car) => decorateCarWithSimpleReservation(car, map)) : [];
+      return decorateCarsWithReservations(cars, { force: true });
     };
   }
 
   if (originalListAdminCars) {
     Data.listAdminCars = async (...args) => {
       const cars = await originalListAdminCars(...args);
-      const map = await getSimpleReservationMap();
-      return Array.isArray(cars) ? cars.map((car) => decorateCarWithSimpleReservation(car, map)) : [];
+      return decorateCarsWithReservations(cars, { force: true });
     };
   }
 
@@ -234,20 +264,25 @@
     Data.getPublishedCarBySlug = async (...args) => {
       const car = await originalGetPublishedCarBySlug(...args);
       if (!car) return car;
-      const map = await getSimpleReservationMap();
-      return decorateCarWithSimpleReservation(car, map);
+      const reservation = await getSimpleReservationForCar(car, { force: true });
+      return decorateCarWithSimpleReservation(car, reservation);
     };
   }
+
+  const persistReservationAndDecorate = async (savedCar, reservationInput) => {
+    if (!savedCar) return savedCar;
+    if (reservationInput.hasFields) {
+      await saveSimpleReservationForCar(savedCar, reservationInput.record);
+    }
+    const reservation = await getSimpleReservationForCar(savedCar, { force: true });
+    return decorateCarWithSimpleReservation(savedCar, reservation);
+  };
 
   if (originalCreateCar) {
     Data.createCar = async (input = {}) => {
       const reservationInput = resolveReservationInput(input);
       const savedCar = await originalCreateCar(stripReservationFields(input));
-      if (savedCar && reservationInput.hasFields) {
-        await saveSimpleReservationForCar(savedCar, reservationInput.record);
-      }
-      const map = await getSimpleReservationMap();
-      return savedCar ? decorateCarWithSimpleReservation(savedCar, map) : savedCar;
+      return persistReservationAndDecorate(savedCar, reservationInput);
     };
   }
 
@@ -255,11 +290,7 @@
     Data.updateCar = async (id, input = {}) => {
       const reservationInput = resolveReservationInput(input);
       const savedCar = await originalUpdateCar(id, stripReservationFields(input));
-      if (savedCar && reservationInput.hasFields) {
-        await saveSimpleReservationForCar(savedCar, reservationInput.record);
-      }
-      const map = await getSimpleReservationMap();
-      return savedCar ? decorateCarWithSimpleReservation(savedCar, map) : savedCar;
+      return persistReservationAndDecorate(savedCar, reservationInput);
     };
   }
 
@@ -267,11 +298,7 @@
     Data.patchCar = async (id, partial = {}) => {
       const reservationInput = resolveReservationInput(partial);
       const savedCar = await originalPatchCar(id, stripReservationFields(partial));
-      if (savedCar && reservationInput.hasFields) {
-        await saveSimpleReservationForCar(savedCar, reservationInput.record);
-      }
-      const map = await getSimpleReservationMap();
-      return savedCar ? decorateCarWithSimpleReservation(savedCar, map) : savedCar;
+      return persistReservationAndDecorate(savedCar, reservationInput);
     };
   }
 
@@ -283,8 +310,6 @@
   }
 
   Data.__simpleReservationPatchApplied = true;
-  Data.getSimpleReservationMap = getSimpleReservationMap;
-  Data.saveSimpleReservationMap = saveSimpleReservationMap;
   Data.getSimpleReservationForCar = getSimpleReservationForCar;
   Data.saveSimpleReservationForCar = saveSimpleReservationForCar;
   Data.deleteSimpleReservationForCar = deleteSimpleReservationForCar;
