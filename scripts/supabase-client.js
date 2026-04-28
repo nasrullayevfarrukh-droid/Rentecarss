@@ -637,13 +637,36 @@
     return admin ? items : items.map(sanitizePublicCarReservationRecord);
   };
 
-  const saveFallbackCarReservations = async (items) => {
+  const saveFallbackCarReservations = async (items, { preserveSchemaMode = false } = {}) => {
     const normalizedStore = normalizeCarReservationsFallbackStore({ items });
     await saveSiteContent(CAR_RESERVATIONS_FALLBACK_KEY, normalizedStore);
     fallbackCarReservationsCache = normalizedStore.items.map((item) => normalizeCarReservationRecord(item));
     publicCarReservationsCache = null;
-    carReservationsSchemaMode = "fallback";
+    if (!preserveSchemaMode) {
+      carReservationsSchemaMode = "fallback";
+    }
     return sortCarReservations(fallbackCarReservationsCache, "asc");
+  };
+
+  const mirrorFullCarReservationsToFallback = async () => {
+    if (carReservationsSchemaMode !== "full") {
+      return [];
+    }
+
+    const rows = await requestCarReservationsRest({
+      admin: true,
+      allowMissing: true,
+      select: CAR_RESERVATION_COLUMNS,
+      order: "start_at.desc",
+    });
+
+    if (carReservationsSchemaMode !== "full") {
+      return [];
+    }
+
+    const items = Array.isArray(rows) ? rows.map(normalizeCarReservationRecord) : [];
+    await saveFallbackCarReservations(items, { preserveSchemaMode: true });
+    return items;
   };
 
   const getEffectiveCarReservationStatus = (reservation, now = Date.now()) => {
@@ -1690,6 +1713,7 @@
         items = Array.isArray(refreshedRows) ? refreshedRows.map(normalizeCarReservationRecord) : [];
       }
     }
+    await saveFallbackCarReservations(items, { preserveSchemaMode: true });
     return items;
   };
 
@@ -1755,6 +1779,7 @@
 
     publicCarReservationsCache = null;
     fallbackCarReservationsCache = null;
+    await mirrorFullCarReservationsToFallback();
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
@@ -1792,6 +1817,7 @@
 
     publicCarReservationsCache = null;
     fallbackCarReservationsCache = null;
+    await mirrorFullCarReservationsToFallback();
     return Array.isArray(rows) && rows[0] ? normalizeCarReservationRecord(rows[0]) : null;
   };
 
@@ -1813,6 +1839,9 @@
       await saveFallbackCarReservations(source.filter((item) => item.id !== targetId));
     }
     publicCarReservationsCache = null;
+    if (carReservationsSchemaMode === "full") {
+      await mirrorFullCarReservationsToFallback();
+    }
   };
 
   const createReservationLead = async (input) => {
