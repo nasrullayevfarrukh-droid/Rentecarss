@@ -129,6 +129,14 @@
     }
   };
 
+  const hasReservationFields = (car) => Boolean(
+    car
+    && (toStringValue(car.reservationStartDateTime)
+      || toStringValue(car.reservationEndDateTime)
+      || toStringValue(car.reservationNote)
+      || car.isReserved)
+  );
+
   const getReservationView = (car) => {
     if (!car || typeof Data.isSimpleReservationActive !== "function") return null;
     if (!Data.isSimpleReservationActive(car)) return null;
@@ -139,6 +147,26 @@
     const endLabel = typeof Data.formatSimpleReservationDateTime === "function"
       ? Data.formatSimpleReservationDateTime(car.reservationEndDateTime)
       : "";
+    const note = toStringValue(car.reservationNote);
+
+    if (!startLabel && !endLabel && !note) return null;
+
+    return {
+      startLabel,
+      endLabel,
+      note,
+    };
+  };
+
+  const getDetailReservationView = (car) => {
+    if (!car || !hasReservationFields(car)) return null;
+
+    const startLabel = typeof Data.formatSimpleReservationDateTime === "function"
+      ? Data.formatSimpleReservationDateTime(car.reservationStartDateTime)
+      : toStringValue(car.reservationStartDateTime);
+    const endLabel = typeof Data.formatSimpleReservationDateTime === "function"
+      ? Data.formatSimpleReservationDateTime(car.reservationEndDateTime)
+      : toStringValue(car.reservationEndDateTime);
     const note = toStringValue(car.reservationNote);
 
     if (!startLabel && !endLabel && !note) return null;
@@ -242,8 +270,20 @@
     const slug = extractSlugFromLocation(window.location.href);
     const car = await Data.getPublishedCarBySlug(slug).catch(() => null);
     const existing = qs(`[${BLOCK_ATTR}="detail"]`, summary);
-    const view = getReservationView(car);
+    const view = getDetailReservationView(car);
     const anchor = price || heading;
+
+    console.log("[reservation-detail-debug]", {
+      slug,
+      car,
+      reservation: car ? {
+        isReserved: car.isReserved,
+        reservationStartDateTime: car.reservationStartDateTime,
+        reservationEndDateTime: car.reservationEndDateTime,
+        reservationNote: car.reservationNote,
+      } : null,
+      renderedView: view,
+    });
 
     if (!view || !anchor) {
       if (existing) existing.remove();
