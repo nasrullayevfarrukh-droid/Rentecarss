@@ -140,16 +140,23 @@
     });
   };
 
+  const loadCarBySlug = async (slug, cache) => {
+    const cleanSlug = toStringValue(slug);
+    if (!cleanSlug) return null;
+    if (cache.has(cleanSlug)) return cache.get(cleanSlug);
+    const promise = Data.getPublishedCarBySlug(cleanSlug).catch(() => null);
+    cache.set(cleanSlug, promise);
+    return promise;
+  };
+
   const upsertCardReservationBlocks = async () => {
-    const grids = qsa(".fleet-grid--catalog");
-    if (!grids.length) return;
+    const links = qsa('.fleet-grid--catalog a[href*="/cars/"], .fleet-grid--catalog a[href*="car.html"]');
+    if (!links.length) return;
 
-    const cars = await Data.listPublishedCars().catch(() => []);
-    const carsBySlug = new Map(cars.map((car) => [toStringValue(car.slug), car]));
-
-    qsa('.fleet-grid--catalog a[href*="/cars/"], .fleet-grid--catalog a[href*="car.html"]').forEach((link) => {
+    const cache = new Map();
+    await Promise.all(links.map(async (link) => {
       const slug = extractSlugFromLocation(link.getAttribute("href") || "");
-      const car = carsBySlug.get(slug);
+      const car = await loadCarBySlug(slug, cache);
       const card = link.closest("article") || link;
       const heading = qs(".fleet-card__meta strong, .fleet-card__meta h3, h3, h4", card);
       const existing = qs(`[${BLOCK_ATTR}="card"]`, card);
@@ -170,7 +177,7 @@
       if (!existing) {
         heading.insertAdjacentElement("afterend", block);
       }
-    });
+    }));
   };
 
   const upsertDetailReservationBlock = async () => {
@@ -183,7 +190,7 @@
     clearLegacyReservationUi(summary);
 
     const slug = extractSlugFromLocation(window.location.href);
-    const car = slug ? await Data.getPublishedCarBySlug(slug).catch(() => null) : null;
+    const car = await Data.getPublishedCarBySlug(slug).catch(() => null);
     const existing = qs(`[${BLOCK_ATTR}="detail"]`, summary);
     const view = getReservationView(car);
 
