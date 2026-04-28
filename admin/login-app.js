@@ -5,10 +5,56 @@
 
   const THEME_KEY = "rentacar-admin-theme-v5";
   const LAST_ERROR_KEY = "rentacar-admin-last-error";
+  const CONFIG_CACHE_KEY = "rentacar-public-config-v1";
+  const CONFIG_ENDPOINTS = [
+    "/api/public-config",
+    "/.netlify/functions/public-config",
+    "/netlify/functions/public-config",
+  ];
 
   const qs = (selector, scope = document) => scope.querySelector(selector);
 
   const readTheme = () => (localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
+
+  const normalizeConfig = (value) => ({
+    supabaseUrl: String(value?.supabaseUrl || "").trim(),
+    supabaseAnonKey: String(value?.supabaseAnonKey || "").trim(),
+    storageBucket: String(value?.storageBucket || "car-images").trim() || "car-images",
+  });
+
+  const writeConfigCache = (value) => {
+    const normalized = normalizeConfig(value);
+    if (!normalized.supabaseUrl || !normalized.supabaseAnonKey) return null;
+    localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(normalized));
+    return normalized;
+  };
+
+  const fetchFallbackConfig = async () => {
+    for (const endpoint of CONFIG_ENDPOINTS) {
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" });
+        if (!response.ok) continue;
+        const payload = normalizeConfig(await response.json());
+        if (payload.supabaseUrl && payload.supabaseAnonKey) {
+          writeConfigCache(payload);
+          return payload;
+        }
+      } catch {
+        // try next endpoint
+      }
+    }
+    return null;
+  };
+
+  const ensureConfig = async () => {
+    try {
+      return await Data.getConfig({ force: true });
+    } catch (error) {
+      const fallback = await fetchFallbackConfig();
+      if (fallback) return fallback;
+      throw error;
+    }
+  };
 
   const setTheme = (theme) => {
     const current = theme === "dark" ? "dark" : "light";
@@ -59,7 +105,7 @@
     }
 
     try {
-      await Data.getConfig({ force: true });
+      await ensureConfig();
     } catch (error) {
       feedback.textContent = error.message || "Supabase bağlantısı tapılmadı.";
       feedback.classList.add("is-error");
