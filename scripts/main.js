@@ -595,7 +595,7 @@
       return {
         tone: "rented",
         eyebrow: "Kirada",
-        primary: `${formatReservationDateTime(summary.activeReservation.endDateTime)}'a kadar`,
+        primary: `Qaytarılma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
         secondary: `Kalan ${formatRemainingTime(summary.remainingMs)}`,
       };
     }
@@ -603,31 +603,31 @@
       return {
         tone: "reserved",
         eyebrow: "Rezerve",
-        primary: `${formatReservationDateTime(summary.activeReservation.endDateTime)}'a kadar`,
-        secondary: "Bu aralık doludur",
+        primary: `Boşalma: ${formatReservationDateTime(summary.activeReservation.endDateTime)}`,
+        secondary: `Başlangıç: ${formatReservationDateTime(summary.activeReservation.startDateTime)}`,
       };
     }
     if (state === "available" && summary && summary.upcomingReservation) {
       return {
         tone: "upcoming",
         eyebrow: "Müsait",
-        primary: `${formatReservationDateTime(summary.upcomingReservation.startDateTime)}'a kadar`,
-        secondary: "Sonra rezerv başlayır",
+        primary: `Boşdur: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}'a kadar`,
+        secondary: `Rezerv: ${formatReservationDateTime(summary.upcomingReservation.startDateTime)}`,
       };
     }
     if (state === "expired" && summary && summary.latestExpiredReservation) {
       return {
         tone: "expired",
-        eyebrow: "Süresi doldu",
-        primary: formatReservationDateTime(summary.latestExpiredReservation.endDateTime),
-        secondary: "Yeni tarix girilə bilər",
+        eyebrow: "Müsait",
+        primary: `Son qaytarılma: ${formatReservationDateTime(summary.latestExpiredReservation.endDateTime)}`,
+        secondary: "Hazırda yenidən boşdur",
       };
     }
     return {
       tone: "available",
       eyebrow: "Müsait",
       primary: "Hazırda boşdur",
-      secondary: "Rezerv açıqdır",
+      secondary: "İndi rezerv edilə bilər",
     };
   };
 
