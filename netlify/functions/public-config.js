@@ -31,7 +31,13 @@ exports.handler = async function handler() {
       supabaseUrl,
       supabaseAnonKey,
       carImagesBucket,
-      storageBucket: carImagesBucket
+      storageBucket: carImagesBucket,
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+      SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket,
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey,
+      NEXT_PUBLIC_SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket
     })
   };
 };

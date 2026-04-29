@@ -299,11 +299,45 @@
     return data;
   };
 
-  const normalizePublicConfig = (config) => ({
-    supabaseUrl: toStringValue(config && config.supabaseUrl),
-    supabaseAnonKey: toStringValue(config && config.supabaseAnonKey),
-    storageBucket: toStringValue(config && (config.carImagesBucket || config.storageBucket)) || DEFAULT_BUCKET,
-  });
+  const pickConfigValue = (config, keys) => {
+    for (const key of keys) {
+      const candidate = toStringValue(config && config[key]);
+      if (candidate) return candidate;
+    }
+    return "";
+  };
+
+  const normalizePublicConfig = (config) => {
+    const supabaseUrl = pickConfigValue(config, [
+      "supabaseUrl",
+      "SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_URL",
+    ]);
+    const supabaseAnonKey = pickConfigValue(config, [
+      "supabaseAnonKey",
+      "SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    ]);
+    const carImagesBucket = pickConfigValue(config, [
+      "carImagesBucket",
+      "SUPABASE_CAR_IMAGES_BUCKET",
+      "NEXT_PUBLIC_SUPABASE_CAR_IMAGES_BUCKET",
+      "storageBucket",
+    ]) || DEFAULT_BUCKET;
+
+    return {
+      supabaseUrl,
+      supabaseAnonKey,
+      carImagesBucket,
+      storageBucket: carImagesBucket,
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+      SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket,
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey,
+      NEXT_PUBLIC_SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket,
+    };
+  };
 
   const readCachedConfig = () => {
     try {

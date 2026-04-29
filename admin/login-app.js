@@ -16,11 +16,45 @@
 
   const readTheme = () => (localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
 
-  const normalizeConfig = (value) => ({
-    supabaseUrl: String(value?.supabaseUrl || "").trim(),
-    supabaseAnonKey: String(value?.supabaseAnonKey || "").trim(),
-    storageBucket: String(value?.carImagesBucket || value?.storageBucket || "car-images").trim() || "car-images",
-  });
+  const pickConfigValue = (value, keys) => {
+    for (const key of keys) {
+      const candidate = String(value?.[key] || "").trim();
+      if (candidate) return candidate;
+    }
+    return "";
+  };
+
+  const normalizeConfig = (value) => {
+    const supabaseUrl = pickConfigValue(value, [
+      "supabaseUrl",
+      "SUPABASE_URL",
+      "NEXT_PUBLIC_SUPABASE_URL",
+    ]);
+    const supabaseAnonKey = pickConfigValue(value, [
+      "supabaseAnonKey",
+      "SUPABASE_ANON_KEY",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    ]);
+    const carImagesBucket = pickConfigValue(value, [
+      "carImagesBucket",
+      "SUPABASE_CAR_IMAGES_BUCKET",
+      "NEXT_PUBLIC_SUPABASE_CAR_IMAGES_BUCKET",
+      "storageBucket",
+    ]) || "car-images";
+
+    return {
+      supabaseUrl,
+      supabaseAnonKey,
+      carImagesBucket,
+      storageBucket: carImagesBucket,
+      SUPABASE_URL: supabaseUrl,
+      SUPABASE_ANON_KEY: supabaseAnonKey,
+      SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket,
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey,
+      NEXT_PUBLIC_SUPABASE_CAR_IMAGES_BUCKET: carImagesBucket,
+    };
+  };
 
   const writeConfigCache = (value) => {
     const normalized = normalizeConfig(value);
