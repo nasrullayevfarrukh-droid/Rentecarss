@@ -16,6 +16,48 @@
 
   const readTheme = () => (localStorage.getItem(THEME_KEY) === "dark" ? "dark" : "light");
 
+  const normalizeSupabaseUrl = (value) => {
+    let normalized = String(value || "").trim();
+    if (!normalized) return "";
+    if (!/^https?:\/\//i.test(normalized)) {
+      normalized = `https://${normalized}`;
+    }
+    normalized = normalized.replace(/\/+$/, "");
+    normalized = normalized.replace(/\.supabase\.com(?=\/|$)/i, ".supabase.co");
+    return normalized;
+  };
+
+  const getSupabaseRefFromAnonKey = (value) => {
+    try {
+      const payload = String(value || "").split(".")[1] || "";
+      const normalized = payload
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .padEnd(Math.ceil(payload.length / 4) * 4, "=");
+      const parsed = JSON.parse(atob(normalized));
+      return String(parsed?.ref || "").trim();
+    } catch {
+      return "";
+    }
+  };
+
+  const normalizeSupabaseUrlWithAnonKey = (value, anonKey) => {
+    const normalizedUrl = normalizeSupabaseUrl(value);
+    const ref = getSupabaseRefFromAnonKey(anonKey);
+    const fallbackUrl = ref ? `https://${ref}.supabase.co` : "";
+
+    if (!fallbackUrl) return normalizedUrl;
+    if (!normalizedUrl) return fallbackUrl;
+
+    try {
+      const currentHost = new URL(normalizedUrl).host.toLowerCase();
+      const fallbackHost = new URL(fallbackUrl).host.toLowerCase();
+      return currentHost === fallbackHost ? normalizedUrl : fallbackUrl;
+    } catch {
+      return fallbackUrl;
+    }
+  };
+
   const pickConfigValue = (value, keys) => {
     for (const key of keys) {
       const candidate = String(value?.[key] || "").trim();
@@ -25,16 +67,19 @@
   };
 
   const normalizeConfig = (value) => {
-    const supabaseUrl = pickConfigValue(value, [
-      "supabaseUrl",
-      "SUPABASE_URL",
-      "NEXT_PUBLIC_SUPABASE_URL",
-    ]);
     const supabaseAnonKey = pickConfigValue(value, [
       "supabaseAnonKey",
       "SUPABASE_ANON_KEY",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     ]);
+    const supabaseUrl = normalizeSupabaseUrlWithAnonKey(
+      pickConfigValue(value, [
+        "supabaseUrl",
+        "SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_URL",
+      ]),
+      supabaseAnonKey
+    );
     const carImagesBucket = pickConfigValue(value, [
       "carImagesBucket",
       "SUPABASE_CAR_IMAGES_BUCKET",
