@@ -7,8 +7,8 @@
   const LAST_ERROR_KEY = "rentacar-admin-last-error";
   const CONFIG_CACHE_KEY = "rentacar-public-config-v1";
   const CONFIG_ENDPOINTS = [
-    "/api/public-config",
     "/.netlify/functions/public-config",
+    "/api/public-config",
     "/netlify/functions/public-config",
   ];
 
@@ -19,7 +19,7 @@
   const normalizeConfig = (value) => ({
     supabaseUrl: String(value?.supabaseUrl || "").trim(),
     supabaseAnonKey: String(value?.supabaseAnonKey || "").trim(),
-    storageBucket: String(value?.storageBucket || "car-images").trim() || "car-images",
+    storageBucket: String(value?.carImagesBucket || value?.storageBucket || "car-images").trim() || "car-images",
   });
 
   const writeConfigCache = (value) => {

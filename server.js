@@ -1,4 +1,4 @@
-﻿import { createServer } from "node:http";
+import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "./config.js";
@@ -127,11 +127,12 @@ const server = createServer(async (req, res) => {
     return sendJson(res, 200, { ok: true, service: "rentacar-api", time: new Date().toISOString() });
   }
 
-  if (url.pathname === "/api/public-config") {
+  if (url.pathname === "/api/public-config" || url.pathname === "/.netlify/functions/public-config") {
     if (req.method !== "GET") return sendMethodNotAllowed(res);
     return sendJson(res, 200, {
       supabaseUrl: config.supabase.url,
       supabaseAnonKey: config.supabase.anonKey,
+      carImagesBucket: config.supabase.carImagesBucket,
       storageBucket: config.supabase.carImagesBucket,
     });
   }

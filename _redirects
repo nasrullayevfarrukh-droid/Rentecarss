@@ -1,0 +1,3 @@
+/api/public-config /.netlify/functions/public-config 200!
+/pages/cars/:slug.html /cars/:slug 301!
+/cars/* /car.html 200!

@@ -1,5 +1,5 @@
-﻿(function () {
-  const CONFIG_ENDPOINT = "/api/public-config";
+(function () {
+  const CONFIG_ENDPOINT = "/.netlify/functions/public-config";
   const SESSION_KEY = "rentacar-admin-session-v1";
   const CONFIG_CACHE_KEY = "rentacar-public-config-v1";
   const DEFAULT_BUCKET = "car-images";
@@ -302,7 +302,7 @@
   const normalizePublicConfig = (config) => ({
     supabaseUrl: toStringValue(config && config.supabaseUrl),
     supabaseAnonKey: toStringValue(config && config.supabaseAnonKey),
-    storageBucket: toStringValue(config && config.storageBucket) || DEFAULT_BUCKET,
+    storageBucket: toStringValue(config && (config.carImagesBucket || config.storageBucket)) || DEFAULT_BUCKET,
   });
 
   const readCachedConfig = () => {

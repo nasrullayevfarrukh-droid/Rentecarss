@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "rentacar-backend",
   "version": "1.0.0",
   "private": true,
@@ -9,6 +9,6 @@
     "lint": "npm run check:all",
     "build": "npm run check:all",
     "check": "node --check server.js",
-    "check:all": "node --check server.js && node --check scripts/supabase-client.js && node --check scripts/main.js && node --check admin/auth.js && node --check admin/login-app.js && node --check admin/admin-app.js && node --check netlify/functions/public-config.mjs"
+    "check:all": "node --check server.js && node --check scripts/supabase-client.js && node --check scripts/main.js && node --check admin/auth.js && node --check admin/login-app.js && node --check admin/admin-app.js && node --check netlify/functions/public-config.js"
   }
 }
